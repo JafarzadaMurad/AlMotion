@@ -1,0 +1,42 @@
+{
+    # Disable persistent admin endpoint — we're a dev container, no need.
+    admin off
+    # No auto TLS in dev (port 8008 is plain HTTP for now).
+    auto_https off
+}
+
+:8008 {
+    # Front-end still calls `/api/v1/*` (originally for the Vite proxy in dev).
+    # Strip the version segment before handing off to Laravel, which lives at `/api/*`.
+    @apiv1 path /api/v1/*
+    handle @apiv1 {
+        uri replace /api/v1/ /api/
+        root * /home/coder/workspace/AlMotion/freecut-backend/public
+        php_server
+    }
+
+    # Anything else under `/api/*` goes straight to Laravel.
+    @api path /api/*
+    handle @api {
+        root * /home/coder/workspace/AlMotion/freecut-backend/public
+        php_server
+    }
+
+    # Stripe webhook + storage uploads share the /api prefix and are handled above.
+    # Everything else (HTML, JS, CSS, assets) is the built SPA.
+    handle {
+        root * /home/coder/workspace/AlMotion/freecut/dist
+        try_files {path} /index.html
+        file_server
+    }
+
+    # WebGPU + WebCodecs + OPFS require a cross-origin-isolated context.
+    header {
+        Cross-Origin-Embedder-Policy "require-corp"
+        Cross-Origin-Opener-Policy "same-origin"
+        # SPA assets are versioned by Vite — long-cache them.
+        ?Cache-Control "no-cache"
+    }
+
+    encode gzip zstd
+}
