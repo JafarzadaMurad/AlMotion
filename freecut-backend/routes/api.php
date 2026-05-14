@@ -113,7 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users/{user}/toggle-block', [UserController::class, 'toggleBlock']);
         Route::get('/settings', [SettingsController::class, 'index']);
         Route::put('/settings', [SettingsController::class, 'update']);
-        Route::apiResource('agents', \App\Http\Controllers\Api\Admin\AgentController::class);
+        Route::apiResource('agents', \App\Http\Controllers\Api\Admin\AgentController::class)->names('admin.agents');
 
     });
 });
