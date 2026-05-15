@@ -190,13 +190,17 @@ export const AI_TOOLS = [
         type: 'function',
         function: {
             name: 'add_captions',
-            description: 'Insert the existing transcript of a media item onto the timeline as text captions/subtitles.',
+            description: 'Insert the existing transcript of a media item onto the timeline as text captions/subtitles. If the same mediaId is used by multiple clips (e.g. a primary clip plus B-roll cutaways reusing the source), pass clipId to pick the correct one (typically the longest / primary audio clip). Use get_timeline_info first to find clip IDs.',
             parameters: {
                 type: 'object',
                 properties: {
                     mediaId: {
                         type: 'string',
                         description: 'The ID of the media item whose transcript should be used for captions.',
+                    },
+                    clipId: {
+                        type: 'string',
+                        description: 'Optional. ID of a specific timeline clip to caption. Pass when multiple clips share the same mediaId — choose the primary (longest, full-audio) clip ID.',
                     },
                 },
                 required: ['mediaId'],

@@ -54,7 +54,7 @@ export class AiToolExecutor {
             case 'transcribe_media':
                 return await this.transcribeMedia(args.mediaId);
             case 'add_captions':
-                return await this.addCaptions(args.mediaId);
+                return await this.addCaptions(args.mediaId, args.clipId);
             case 'get_media_library_info':
                 return await this.getMediaLibraryInfo();
             case 'get_media_transcript':
@@ -388,13 +388,27 @@ export class AiToolExecutor {
         }
     }
 
-    private async addCaptions(mediaId: string): Promise<string> {
+    private async addCaptions(mediaId: string, clipId?: string): Promise<string> {
         try {
             mediaId = this.resolveMediaId(mediaId);
-            const result = await mediaTranscriptionService.insertTranscriptAsCaptions(mediaId, { replaceExisting: true });
+            const result = await mediaTranscriptionService.insertTranscriptAsCaptions(
+                mediaId,
+                {
+                    replaceExisting: true,
+                    ...(clipId ? { clipIds: [clipId] } : {}),
+                },
+            );
             return JSON.stringify({ success: true, insertedItemCount: result.insertedItemCount, removedItemCount: result.removedItemCount });
         } catch (e) {
-            return JSON.stringify({ error: e instanceof Error ? e.message : String(e) });
+            // Surface a hint when the failure is the multi-clip ambiguity case so the
+            // AI knows to call get_timeline_info and retry with an explicit clipId.
+            const msg = e instanceof Error ? e.message : String(e);
+            if (/does not overlap|Select a clip/i.test(msg)) {
+                return JSON.stringify({
+                    error: `${msg}. Multiple clips may share this mediaId (e.g. a primary clip plus B-roll reuse). Call get_timeline_info, find the clip with the longest durationInFrames for this mediaId (that is the primary audio source), and retry add_captions with that clip's id passed as clipId.`,
+                });
+            }
+            return JSON.stringify({ error: msg });
         }
     }
 
