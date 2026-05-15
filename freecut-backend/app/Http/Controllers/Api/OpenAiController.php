@@ -79,9 +79,9 @@ class OpenAiController extends Controller
             'file' => 'required|file|max:512000', // 500MB
         ]);
 
-        $j2vKey = config('services.json2video.key');
+        $j2vKey = \App\Models\Setting::get('json2video_api_key') ?: config('services.json2video.key');
         if (empty($j2vKey)) {
-            return response()->json(['error' => 'Transcription service is not configured (missing JSON2VIDEO_API_KEY).'], 500);
+            return response()->json(['error' => 'Transcription service is not configured. Admin must set the json2video API key.'], 500);
         }
         $j2vBase = rtrim(config('services.json2video.base_url'), '/');
 
@@ -107,7 +107,7 @@ class OpenAiController extends Controller
 
     public function transcribeStatus(string $jobId)
     {
-        $j2vKey = config('services.json2video.key');
+        $j2vKey = \App\Models\Setting::get('json2video_api_key') ?: config('services.json2video.key');
         if (empty($j2vKey)) {
             return response()->json(['error' => 'Transcription service is not configured.'], 500);
         }

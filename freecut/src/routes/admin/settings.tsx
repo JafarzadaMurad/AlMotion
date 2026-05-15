@@ -31,6 +31,8 @@ interface AdminSettings {
   user_key_allowed_models: string[] | null;
   heygen_api_key: string | null;
   heygen_api_key_set: boolean;
+  json2video_api_key: string | null;
+  json2video_api_key_set: boolean;
 }
 
 export const Route = createFileRoute('/admin/settings')({
@@ -49,6 +51,7 @@ function SettingsPage() {
   const [pexelsKey, setPexelsKey] = useState('');
   const [wavespeedKey, setWavespeedKey] = useState('');
   const [heygenKey, setHeygenKey] = useState('');
+  const [json2videoKey, setJson2videoKey] = useState('');
   const [allowUserKeys, setAllowUserKeys] = useState(true);
   const [userKeyModels, setUserKeyModels] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -75,6 +78,7 @@ function SettingsPage() {
       if (pexelsKey) payload.pexels_api_key = pexelsKey;
       if (wavespeedKey) payload.wavespeed_api_key = wavespeedKey;
       if (heygenKey) payload.heygen_api_key = heygenKey;
+      if (json2videoKey) payload.json2video_api_key = json2videoKey;
 
       await ApiClient.put('/admin/settings', payload);
 
@@ -83,6 +87,9 @@ function SettingsPage() {
       setSettings(updated);
       setOpenaiKey('');
       setPexelsKey('');
+      setWavespeedKey('');
+      setHeygenKey('');
+      setJson2videoKey('');
       setMessage('Settings saved successfully');
     } finally {
       setSaving(false);
@@ -299,6 +306,41 @@ function SettingsPage() {
             }
             value={heygenKey}
             onChange={(e) => setHeygenKey(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* json2video API Key (transcription) */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            json2video API Key
+          </h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            Used for media transcription (subtitles / SRT generation).
+            The backend proxies transcription requests to the json2video
+            server using this key.
+          </p>
+
+          {settings?.json2video_api_key_set && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
+                Set
+              </span>
+              <span className="font-mono text-sm text-zinc-400">
+                {settings.json2video_api_key}
+              </span>
+            </div>
+          )}
+
+          <input
+            type="password"
+            placeholder={
+              settings?.json2video_api_key_set
+                ? 'Enter new key to replace...'
+                : 'j2v_...'
+            }
+            value={json2videoKey}
+            onChange={(e) => setJson2videoKey(e.target.value)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
           />
         </div>
