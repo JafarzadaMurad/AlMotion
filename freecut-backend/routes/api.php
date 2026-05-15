@@ -88,8 +88,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wavespeed/config', [WaveSpeedController::class, 'config']);
 
     // json2video transcription proxy (avoids Vite proxy issues with large files)
-    Route::post('/transcribe/start', [OpenAiController::class, 'transcribeProxy']);
-    Route::get('/transcribe/status/{jobId}', [OpenAiController::class, 'transcribeStatus']);
+    Route::post('/transcribe', [OpenAiController::class, 'transcribeProxy']);
+    Route::get('/transcribe/{jobId}', [OpenAiController::class, 'transcribeStatus']);
     Route::post('/transcribe/srt', [OpenAiController::class, 'transcribeSrt']);
 
     // User settings (own API key)

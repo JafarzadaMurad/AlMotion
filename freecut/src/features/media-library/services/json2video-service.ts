@@ -1,8 +1,21 @@
-export class Json2VideoService {
-    // Use Vite proxy to json2video server
-    private readonly baseUrl = '/api/v1';
+function getAuthToken(): string | null {
+    try {
+        const stored = localStorage.getItem('auth-storage');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            return parsed.state?.token ?? null;
+        }
+    } catch {
+        // ignore
+    }
+    return null;
+}
 
-    constructor(private defaultApiKey: string) { }
+export class Json2VideoService {
+    // Backend proxies these requests to the json2video server, so we go
+    // through the same `/api/v1` prefix as the rest of the app and rely on
+    // the user's auth token rather than a shared X-API-Key.
+    private readonly baseUrl = '/api/v1';
 
     /**
      * Start a transcription job and return the job_id
@@ -14,10 +27,12 @@ export class Json2VideoService {
             formData.append('language', language);
         }
 
+        const token = getAuthToken();
         const response = await fetch(`${this.baseUrl}/transcribe`, {
             method: 'POST',
             headers: {
-                'X-API-Key': this.defaultApiKey,
+                Accept: 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: formData,
         });
@@ -39,9 +54,11 @@ export class Json2VideoService {
         const intervalMs = 2000;
 
         for (let i = 0; i < maxRetries; i++) {
+            const token = getAuthToken();
             const response = await fetch(`${this.baseUrl}/transcribe/${jobId}`, {
                 headers: {
-                    'X-API-Key': this.defaultApiKey,
+                    Accept: 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
             });
 
@@ -124,5 +141,5 @@ export class Json2VideoService {
     }
 }
 
-// Instantiate singleton with hardcoded key since requested
-export const json2VideoService = new Json2VideoService('j2v_mbnW39bhYRc7UXkevMSOctKnd1acIQXY');
+// Singleton — the json2video API key now lives in the backend.
+export const json2VideoService = new Json2VideoService();
