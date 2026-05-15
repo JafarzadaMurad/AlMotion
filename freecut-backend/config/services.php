@@ -48,4 +48,9 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'json2video' => [
+        'key' => env('JSON2VIDEO_API_KEY'),
+        'base_url' => env('JSON2VIDEO_BASE_URL', 'http://168.231.108.200:2993'),
+    ],
+
 ];

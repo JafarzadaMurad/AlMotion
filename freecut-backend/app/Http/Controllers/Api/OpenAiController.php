@@ -76,12 +76,17 @@ class OpenAiController extends Controller
     public function transcribeProxy(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|max:204800', // 200MB
+            'file' => 'required|file|max:512000', // 500MB
         ]);
+
+        $j2vKey = config('services.json2video.key');
+        if (empty($j2vKey)) {
+            return response()->json(['error' => 'Transcription service is not configured (missing JSON2VIDEO_API_KEY).'], 500);
+        }
+        $j2vBase = rtrim(config('services.json2video.base_url'), '/');
 
         $file = $request->file('file');
         $language = $request->input('language');
-        $j2vKey = 'j2v_mbnW39bhYRc7UXkevMSOctKnd1acIQXY';
 
         try {
             $http = Http::timeout(300)
@@ -92,10 +97,7 @@ class OpenAiController extends Controller
                 $http = $http->attach('language', $language, null, ['Content-Type' => 'text/plain']);
             }
 
-            $response = Http::timeout(300)
-                ->withHeaders(['X-API-Key' => $j2vKey])
-                ->attach('file', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
-                ->post('http://168.231.108.200:2993/api/v1/transcribe');
+            $response = $http->post($j2vBase . '/api/v1/transcribe');
 
             return response()->json($response->json(), $response->status());
         } catch (\Exception $e) {
@@ -105,12 +107,16 @@ class OpenAiController extends Controller
 
     public function transcribeStatus(string $jobId)
     {
-        $j2vKey = 'j2v_mbnW39bhYRc7UXkevMSOctKnd1acIQXY';
+        $j2vKey = config('services.json2video.key');
+        if (empty($j2vKey)) {
+            return response()->json(['error' => 'Transcription service is not configured.'], 500);
+        }
+        $j2vBase = rtrim(config('services.json2video.base_url'), '/');
 
         try {
             $response = Http::timeout(30)
                 ->withHeaders(['X-API-Key' => $j2vKey])
-                ->get("http://168.231.108.200:2993/api/v1/transcribe/{$jobId}");
+                ->get("{$j2vBase}/api/v1/transcribe/{$jobId}");
 
             return response()->json($response->json(), $response->status());
         } catch (\Exception $e) {
