@@ -89,14 +89,24 @@ export class Json2VideoService {
     }
 
     /**
-     * Fetch SRT content from the srt_url
+     * Fetch SRT content via the backend proxy. The srtUrl returned by
+     * json2video points to its own host (e.g. http://168.231.108.200:2993/...)
+     * which the browser cannot reach in production — backend has Http access
+     * and forwards the body back to us as text/plain.
      */
     async downloadSrt(srtUrl: string): Promise<string> {
-        // Rewrite to use vite proxy to avoid CORS issues
-        const proxiedUrl = srtUrl.replace('http://168.231.108.200:2993', '');
-        const response = await fetch(proxiedUrl);
+        const token = getAuthToken();
+        const response = await fetch(`${this.baseUrl}/transcribe/srt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'text/plain, application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ url: srtUrl }),
+        });
         if (!response.ok) {
-            throw new Error(`Failed to download SRT file`);
+            throw new Error(`Failed to download SRT file (${response.status})`);
         }
         return await response.text();
     }

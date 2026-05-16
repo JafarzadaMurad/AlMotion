@@ -131,8 +131,14 @@ class OpenAiController extends Controller
             return response()->json(['error' => 'url parameter required'], 400);
         }
 
+        $j2vKey = \App\Models\Setting::get('json2video_api_key') ?: config('services.json2video.key');
+
         try {
-            $response = Http::timeout(30)->get($srtUrl);
+            $http = Http::timeout(30);
+            if (!empty($j2vKey)) {
+                $http = $http->withHeaders(['X-API-Key' => $j2vKey]);
+            }
+            $response = $http->get($srtUrl);
             return response($response->body(), $response->status())
                 ->header('Content-Type', 'text/plain');
         } catch (\Exception $e) {
