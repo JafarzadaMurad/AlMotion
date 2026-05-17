@@ -46,8 +46,9 @@ class OpenAiController extends Controller
         }
 
         try {
+            $rawBody = $request->getContent();
             $payload = $request->json()->all();
-            $result = $provider->chat($payload, $apiKey);
+            $result = $provider->chat($rawBody, $payload, $apiKey);
         } catch (\Exception $e) {
             return response()->json(['error' => "Failed to reach {$provider->name()}: " . $e->getMessage()], 502);
         }

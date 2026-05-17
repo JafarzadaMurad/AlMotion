@@ -37,14 +37,20 @@ class OpenAiProvider implements AiProvider
         return in_array($model, self::MODELS, true);
     }
 
-    public function chat(array $payload, string $apiKey): ChatResult
+    public function chat(string $rawJsonBody, array $payload, string $apiKey): ChatResult
     {
+        // Forward the raw bytes so empty-object schemas like
+        // `"parameters": {"type":"object","properties":{}}` survive intact.
+        // Round-tripping through array <-> JSON converts an empty
+        // associative array into [], which OpenAI rejects with
+        // "Invalid schema for function ...: [] is not of type 'object'".
         $response = Http::timeout(120)
             ->withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
             ])
-            ->post('https://api.openai.com/v1/chat/completions', $payload);
+            ->withBody($rawJsonBody, 'application/json')
+            ->post('https://api.openai.com/v1/chat/completions');
 
         return new ChatResult(
             data: $response->json() ?? [],

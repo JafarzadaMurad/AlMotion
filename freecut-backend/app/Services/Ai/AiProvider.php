@@ -19,13 +19,16 @@ interface AiProvider
     public function supportsModel(string $model): bool;
 
     /**
-     * Execute a chat completion.
+     * Execute a chat completion. Providers receive both the raw JSON body
+     * (so OpenAI can forward verbatim and preserve empty-object schemas like
+     * `"parameters": {}`) and the decoded array (for providers that need to
+     * translate the schema into a different shape, e.g. Anthropic/Gemini).
      *
-     * @param array $payload  OpenAI-shaped request body (model, messages, tools, tool_choice, ...)
-     * @param string $apiKey  Provider API key
-     * @return ChatResult
+     * @param string $rawJsonBody  Raw JSON the client posted
+     * @param array  $payload      Same body, decoded as associative array
+     * @param string $apiKey       Provider API key
      */
-    public function chat(array $payload, string $apiKey): ChatResult;
+    public function chat(string $rawJsonBody, array $payload, string $apiKey): ChatResult;
 
     /** plans.* column that holds this provider's monthly token cap. */
     public function planQuotaColumn(): string;
