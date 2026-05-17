@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\OpenAiProvider;
+use App\Services\Ai\ProviderRegistry;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +13,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Singleton list of every AiProvider the platform knows about. Order
+        // matters only as a tiebreaker — the registry asks each provider in
+        // turn whether it supports the requested model.
+        $this->app->singleton(ProviderRegistry::class, function () {
+            return new ProviderRegistry([
+                new OpenAiProvider(),
+                // AnthropicProvider and GeminiProvider land in follow-up commits.
+            ]);
+        });
     }
 
     /**

@@ -5,33 +5,37 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\TokenUsage;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\ProviderRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class OpenAiController extends Controller
 {
-    // All models the platform recognizes
-    private const ALL_MODELS = [
-        'gpt-4.1',
-        'gpt-4.1-mini',
-        'gpt-4o',
-        'gpt-4o-mini',
-        'o4-mini',
-        'o3-mini',
-    ];
+    public function __construct(private ProviderRegistry $providers)
+    {
+    }
 
     private const DEFAULT_PLAN_MODELS = ['gpt-4o-mini'];
 
     public function proxy(Request $request)
     {
         $user = $request->user();
-        $openaiKey = $this->resolveApiKey($user);
+        $requestedModel = $request->json('model', 'gpt-4o-mini');
 
-        if (!$openaiKey) {
-            return response()->json(['error' => 'No OpenAI API key configured. Contact admin or add your own key.'], 500);
+        $provider = $this->providers->forModel($requestedModel);
+        if (!$provider) {
+            return response()->json([
+                'error' => "Unknown model '{$requestedModel}'. No registered provider handles it.",
+            ], 400);
         }
 
-        $requestedModel = $request->json('model', 'gpt-4o-mini');
+        $apiKey = $this->resolveApiKey($user, $provider);
+        if (!$apiKey) {
+            return response()->json([
+                'error' => "No {$provider->name()} API key configured. Contact admin or add your own key.",
+            ], 500);
+        }
 
         // Validate model against plan/key allowances
         $allowedModels = $this->getAllowedModels($user);
@@ -42,35 +46,31 @@ class OpenAiController extends Controller
         }
 
         try {
-            $response = Http::timeout(120)->withHeaders([
-                'Authorization' => 'Bearer ' . $openaiKey,
-                'Content-Type' => 'application/json'
-            ])->withBody($request->getContent(), 'application/json')
-                ->post('https://api.openai.com/v1/chat/completions');
+            $payload = $request->json()->all();
+            $result = $provider->chat($payload, $apiKey);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to reach OpenAI: ' . $e->getMessage()], 502);
+            return response()->json(['error' => "Failed to reach {$provider->name()}: " . $e->getMessage()], 502);
         }
 
-        $data = $response->json();
+        if ($result->successful()) {
+            $usage = $result->usage();
+            if ($usage['total_tokens'] > 0) {
+                TokenUsage::create([
+                    'user_id' => $user->id,
+                    'provider' => $provider->name(),
+                    'service' => $provider->name(),
+                    'model' => $requestedModel,
+                    'prompt_tokens' => $usage['prompt_tokens'],
+                    'completion_tokens' => $usage['completion_tokens'],
+                    'total_tokens' => $usage['total_tokens'],
+                    'endpoint' => 'chat/completions',
+                ]);
 
-        if ($response->successful() && isset($data['usage'])) {
-            $usage = $data['usage'];
-            $totalTokens = $usage['total_tokens'] ?? 0;
-
-            TokenUsage::create([
-                'user_id' => $user->id,
-                'service' => 'openai',
-                'model' => $requestedModel,
-                'prompt_tokens' => $usage['prompt_tokens'] ?? 0,
-                'completion_tokens' => $usage['completion_tokens'] ?? 0,
-                'total_tokens' => $totalTokens,
-                'endpoint' => 'chat/completions'
-            ]);
-
-            $user->increment('tokens_used_this_month', $totalTokens);
+                $user->increment($provider->userUsageColumn(), $usage['total_tokens']);
+            }
         }
 
-        return response()->json($data, $response->status());
+        return response()->json($result->data, $result->status);
     }
 
     public function transcribeProxy(Request $request)
@@ -149,7 +149,8 @@ class OpenAiController extends Controller
     public function transcribe(Request $request)
     {
         $user = $request->user();
-        $openaiKey = $this->resolveApiKey($user);
+        $openaiProvider = $this->providers->byName('openai');
+        $openaiKey = $openaiProvider ? $this->resolveApiKey($user, $openaiProvider) : null;
 
         if (!$openaiKey) {
             return response()->json(['error' => 'No OpenAI API key configured.'], 500);
@@ -216,15 +217,16 @@ class OpenAiController extends Controller
 
     private function getAllowedModels($user): array
     {
+        $allKnownModels = $this->providers->allModels();
         $usingOwnKey = $this->canUserUseOwnKey($user) && !empty($user->own_openai_api_key);
 
         if ($usingOwnKey) {
             $modelsJson = Setting::get('user_key_allowed_models');
             if ($modelsJson) {
                 $decoded = json_decode($modelsJson, true);
-                return is_array($decoded) && count($decoded) > 0 ? $decoded : self::ALL_MODELS;
+                return is_array($decoded) && count($decoded) > 0 ? $decoded : $allKnownModels;
             }
-            return self::ALL_MODELS;
+            return $allKnownModels;
         }
 
         // Platform key: use plan's allowed_models
@@ -237,26 +239,26 @@ class OpenAiController extends Controller
     }
 
     /**
-     * Resolve which API key to use:
-     * 1. User's own key (if allowed and set)
-     * 2. Global key from admin settings
-     * 3. .env fallback
+     * Resolve which API key to use for the given provider:
+     * 1. User's own OpenAI key (only OpenAI supports this today)
+     * 2. Global key from admin settings (Setting key is provider-specific)
+     * 3. .env fallback (env var is provider-specific)
      */
-    private function resolveApiKey($user): ?string
+    private function resolveApiKey($user, AiProvider $provider): ?string
     {
-        // Check if user can and has set their own key
-        if ($this->canUserUseOwnKey($user) && !empty($user->own_openai_api_key)) {
+        // Per-user own-key path is only wired up for OpenAI right now.
+        if ($provider->name() === 'openai'
+            && $this->canUserUseOwnKey($user)
+            && !empty($user->own_openai_api_key)) {
             return $user->own_openai_api_key;
         }
 
-        // Global key from admin settings
-        $globalKey = Setting::get('openai_api_key');
+        $globalKey = Setting::get($provider->apiKeySettingName());
         if (!empty($globalKey)) {
             return $globalKey;
         }
 
-        // Fallback to .env
-        return env('OPENAI_API_KEY');
+        return env($provider->apiKeyEnvVar());
     }
 
     private function canUserUseOwnKey($user): bool
