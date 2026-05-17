@@ -16,6 +16,7 @@ class SettingsController extends Controller
         $pexelsKey = $settings['pexels_api_key'] ?? null;
         $wavespeedKey = $settings['wavespeed_api_key'] ?? null;
         $json2videoKey = $settings['json2video_api_key'] ?? null;
+        $anthropicKey = $settings['anthropic_api_key'] ?? null;
         $userKeyModels = $settings['user_key_allowed_models'] ?? null;
 
         $aiSystemPrompt = $settings['ai_system_prompt'] ?? null;
@@ -34,6 +35,8 @@ class SettingsController extends Controller
             'heygen_api_key_set' => !empty($settings['heygen_api_key'] ?? null),
             'json2video_api_key' => $json2videoKey ? $this->maskKey($json2videoKey) : null,
             'json2video_api_key_set' => !empty($json2videoKey),
+            'anthropic_api_key' => $anthropicKey ? $this->maskKey($anthropicKey) : null,
+            'anthropic_api_key_set' => !empty($anthropicKey),
             'ai_system_prompt' => $aiSystemPrompt,
             'ai_rules' => $aiRules ? json_decode($aiRules, true) : [],
             'ai_tool_descriptions' => json_decode($settings['ai_tool_descriptions'] ?? '{}', true) ?? [],
@@ -51,6 +54,7 @@ class SettingsController extends Controller
             'wavespeed_api_key' => 'nullable|string',
             'heygen_api_key' => 'nullable|string',
             'json2video_api_key' => 'nullable|string',
+            'anthropic_api_key' => 'nullable|string',
             'ai_system_prompt' => 'nullable|string',
             'ai_rules' => 'nullable|array',
             'ai_rules.*' => 'string',
@@ -83,6 +87,10 @@ class SettingsController extends Controller
 
         if (array_key_exists('json2video_api_key', $validated) && $validated['json2video_api_key'] !== null) {
             Setting::set('json2video_api_key', $validated['json2video_api_key']);
+        }
+
+        if (array_key_exists('anthropic_api_key', $validated) && $validated['anthropic_api_key'] !== null) {
+            Setting::set('anthropic_api_key', $validated['anthropic_api_key']);
         }
 
         if (array_key_exists('ai_system_prompt', $validated)) {

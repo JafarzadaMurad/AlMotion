@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\AnthropicProvider;
 use App\Services\Ai\OpenAiProvider;
 use App\Services\Ai\ProviderRegistry;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +20,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProviderRegistry::class, function () {
             return new ProviderRegistry([
                 new OpenAiProvider(),
-                // AnthropicProvider and GeminiProvider land in follow-up commits.
+                new AnthropicProvider(),
+                // GeminiProvider lands in the next commit.
             ]);
         });
     }

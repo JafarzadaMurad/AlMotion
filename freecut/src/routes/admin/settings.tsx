@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/stores/auth-store';
 
 
 const ALL_MODELS = [
+  // OpenAI
   { id: 'gpt-4o-mini', label: 'GPT-4o Mini', desc: 'Fast & cheap' },
   { id: 'gpt-4o', label: 'GPT-4o', desc: 'Standard' },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', desc: 'Latest fast' },
@@ -18,6 +19,10 @@ const ALL_MODELS = [
   { id: 'gpt-5.4-pro', label: 'GPT-5.4 pro', desc: 'Smarter and more precise responses' },
   { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', desc: 'Our strongest mini model yet' },
   { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', desc: 'Cheapest GPT-5.4-class model' },
+  // Anthropic
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Anthropic top-tier reasoning' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Anthropic balanced default' },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Anthropic fast & cheap' },
 ];
 
 interface AdminSettings {
@@ -33,6 +38,8 @@ interface AdminSettings {
   heygen_api_key_set: boolean;
   json2video_api_key: string | null;
   json2video_api_key_set: boolean;
+  anthropic_api_key: string | null;
+  anthropic_api_key_set: boolean;
 }
 
 export const Route = createFileRoute('/admin/settings')({
@@ -52,6 +59,7 @@ function SettingsPage() {
   const [wavespeedKey, setWavespeedKey] = useState('');
   const [heygenKey, setHeygenKey] = useState('');
   const [json2videoKey, setJson2videoKey] = useState('');
+  const [anthropicKey, setAnthropicKey] = useState('');
   const [allowUserKeys, setAllowUserKeys] = useState(true);
   const [userKeyModels, setUserKeyModels] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -79,6 +87,7 @@ function SettingsPage() {
       if (wavespeedKey) payload.wavespeed_api_key = wavespeedKey;
       if (heygenKey) payload.heygen_api_key = heygenKey;
       if (json2videoKey) payload.json2video_api_key = json2videoKey;
+      if (anthropicKey) payload.anthropic_api_key = anthropicKey;
 
       await ApiClient.put('/admin/settings', payload);
 
@@ -90,6 +99,7 @@ function SettingsPage() {
       setWavespeedKey('');
       setHeygenKey('');
       setJson2videoKey('');
+      setAnthropicKey('');
       setMessage('Settings saved successfully');
     } finally {
       setSaving(false);
@@ -341,6 +351,40 @@ function SettingsPage() {
             }
             value={json2videoKey}
             onChange={(e) => setJson2videoKey(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Anthropic (Claude) API Key */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            Anthropic (Claude) API Key
+          </h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            Used for Claude models (Opus 4.7, Sonnet 4.6, Haiku 4.5). Get
+            your key from console.anthropic.com.
+          </p>
+
+          {settings?.anthropic_api_key_set && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
+                Set
+              </span>
+              <span className="font-mono text-sm text-zinc-400">
+                {settings.anthropic_api_key}
+              </span>
+            </div>
+          )}
+
+          <input
+            type="password"
+            placeholder={
+              settings?.anthropic_api_key_set
+                ? 'Enter new key to replace...'
+                : 'sk-ant-...'
+            }
+            value={anthropicKey}
+            onChange={(e) => setAnthropicKey(e.target.value)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
           />
         </div>

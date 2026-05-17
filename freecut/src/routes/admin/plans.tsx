@@ -6,6 +6,7 @@ import { useAuthStore } from '@/features/auth/stores/auth-store';
 import type { Plan } from '@/features/auth/types/auth';
 
 const ALL_MODELS = [
+  // OpenAI
   { id: 'gpt-4o-mini', label: 'GPT-4o Mini', desc: 'Fast & cheap' },
   { id: 'gpt-4o', label: 'GPT-4o', desc: 'Standard' },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', desc: 'Latest fast' },
@@ -19,6 +20,10 @@ const ALL_MODELS = [
   { id: 'gpt-5.4-pro', label: 'GPT-5.4 pro', desc: 'Smarter and more precise responses' },
   { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', desc: 'Our strongest mini model yet' },
   { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', desc: 'Cheapest GPT-5.4-class model' },
+  // Anthropic
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Anthropic top-tier reasoning' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Anthropic balanced default' },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Anthropic fast & cheap' },
 ];
 
 interface PlanForm {
