@@ -48,6 +48,7 @@ interface PlanForm {
   can_create_avatars: boolean;
   can_use_own_heygen_key: boolean;
   allowed_models: string[];
+  stripe_price_id: string;
 }
 
 const emptyForm: PlanForm = {
@@ -68,6 +69,7 @@ const emptyForm: PlanForm = {
   can_create_avatars: false,
   can_use_own_heygen_key: false,
   allowed_models: ['gpt-4o-mini'],
+  stripe_price_id: '',
 };
 
 export const Route = createFileRoute('/admin/plans')({
@@ -123,6 +125,7 @@ function PlansPage() {
       can_create_avatars: (p as any).can_create_avatars ?? false,
       can_use_own_heygen_key: (p as any).can_use_own_heygen_key ?? false,
       allowed_models: p.allowed_models ?? ['gpt-4o-mini'],
+      stripe_price_id: (p as any).stripe_price_id ?? '',
     });
     setShowForm(true);
   };
@@ -297,6 +300,14 @@ function PlansPage() {
                     ...f,
                     price_monthly: parseFloat(v) || 0,
                   }))
+                }
+              />
+              <FormField
+                label="Stripe Price ID"
+                type="text"
+                value={form.stripe_price_id}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, stripe_price_id: v }))
                 }
               />
               <label className="flex items-center gap-2 text-sm text-zinc-300">
