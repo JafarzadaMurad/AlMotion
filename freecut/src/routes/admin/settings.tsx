@@ -46,6 +46,12 @@ interface AdminSettings {
   anthropic_api_key_set: boolean;
   gemini_api_key: string | null;
   gemini_api_key_set: boolean;
+  stripe_secret_key: string | null;
+  stripe_secret_key_set: boolean;
+  stripe_publishable_key: string | null;
+  stripe_publishable_key_set: boolean;
+  stripe_webhook_secret: string | null;
+  stripe_webhook_secret_set: boolean;
 }
 
 export const Route = createFileRoute('/admin/settings')({
@@ -66,6 +72,9 @@ function SettingsPage() {
   const [heygenKey, setHeygenKey] = useState('');
   const [json2videoKey, setJson2videoKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
+  const [stripeSecret, setStripeSecret] = useState('');
+  const [stripePublishable, setStripePublishable] = useState('');
+  const [stripeWebhook, setStripeWebhook] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [allowUserKeys, setAllowUserKeys] = useState(true);
   const [userKeyModels, setUserKeyModels] = useState<string[]>([]);
@@ -94,6 +103,9 @@ function SettingsPage() {
       if (wavespeedKey) payload.wavespeed_api_key = wavespeedKey;
       if (heygenKey) payload.heygen_api_key = heygenKey;
       if (json2videoKey) payload.json2video_api_key = json2videoKey;
+      if (stripeSecret) payload.stripe_secret_key = stripeSecret;
+      if (stripePublishable) payload.stripe_publishable_key = stripePublishable;
+      if (stripeWebhook) payload.stripe_webhook_secret = stripeWebhook;
       if (anthropicKey) payload.anthropic_api_key = anthropicKey;
       if (geminiKey) payload.gemini_api_key = geminiKey;
 
@@ -109,6 +121,9 @@ function SettingsPage() {
       setJson2videoKey('');
       setAnthropicKey('');
       setGeminiKey('');
+      setStripeSecret('');
+      setStripePublishable('');
+      setStripeWebhook('');
       setMessage('Settings saved successfully');
     } finally {
       setSaving(false);
@@ -430,6 +445,80 @@ function SettingsPage() {
             onChange={(e) => setGeminiKey(e.target.value)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
           />
+        </div>
+
+        {/* Stripe — billing */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            Stripe (Billing)
+          </h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            Used for subscription checkout, the billing portal, and webhook
+            signature verification. Get keys from dashboard.stripe.com.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-zinc-500">
+                Secret Key
+              </label>
+              {settings?.stripe_secret_key_set && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">Set</span>
+                  <span className="font-mono text-sm text-zinc-400">{settings.stripe_secret_key}</span>
+                </div>
+              )}
+              <input
+                type="password"
+                placeholder={settings?.stripe_secret_key_set ? 'Enter new key to replace...' : 'sk_test_...'}
+                value={stripeSecret}
+                onChange={(e) => setStripeSecret(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-zinc-500">
+                Publishable Key
+              </label>
+              {settings?.stripe_publishable_key_set && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">Set</span>
+                  <span className="font-mono text-sm text-zinc-400">{settings.stripe_publishable_key}</span>
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder={settings?.stripe_publishable_key_set ? 'Enter new key to replace...' : 'pk_test_...'}
+                value={stripePublishable}
+                onChange={(e) => setStripePublishable(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-zinc-500">
+                Webhook Signing Secret
+              </label>
+              {settings?.stripe_webhook_secret_set && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">Set</span>
+                  <span className="font-mono text-sm text-zinc-400">{settings.stripe_webhook_secret}</span>
+                </div>
+              )}
+              <input
+                type="password"
+                placeholder={settings?.stripe_webhook_secret_set ? 'Enter new key to replace...' : 'whsec_...'}
+                value={stripeWebhook}
+                onChange={(e) => setStripeWebhook(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-zinc-500">
+                From the webhook endpoint settings in Stripe Dashboard. Required
+                in production so we can verify event signatures.
+              </p>
+            </div>
+          </div>
         </div>
 
         <button

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +15,26 @@ use Stripe\Exception\SignatureVerificationException;
 
 class StripeController extends Controller
 {
+    /**
+     * Resolve the Stripe secret key. Admin setting takes precedence so the
+     * operator can rotate the key from /admin/settings without touching .env;
+     * fall back to config (env) for legacy / dev setups.
+     */
+    private function secretKey(): ?string
+    {
+        return Setting::get('stripe_secret_key') ?: config('services.stripe.secret');
+    }
+
+    private function webhookSecret(): ?string
+    {
+        return Setting::get('stripe_webhook_secret') ?: config('services.stripe.webhook_secret');
+    }
+
     private function client(): StripeClient
     {
-        $secret = config('services.stripe.secret');
+        $secret = $this->secretKey();
         if (empty($secret)) {
-            abort(500, 'Stripe is not configured (missing STRIPE_SECRET).');
+            abort(500, 'Stripe is not configured. Admin must set the Stripe secret key.');
         }
         Stripe::setApiKey($secret);
         return new StripeClient($secret);
@@ -139,7 +155,7 @@ class StripeController extends Controller
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
-        $webhookSecret = config('services.stripe.webhook_secret');
+        $webhookSecret = $this->webhookSecret();
 
         try {
             $event = $webhookSecret

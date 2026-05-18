@@ -18,6 +18,9 @@ class SettingsController extends Controller
         $json2videoKey = $settings['json2video_api_key'] ?? null;
         $anthropicKey = $settings['anthropic_api_key'] ?? null;
         $geminiKey = $settings['gemini_api_key'] ?? null;
+        $stripeSecret = $settings['stripe_secret_key'] ?? null;
+        $stripePublishable = $settings['stripe_publishable_key'] ?? null;
+        $stripeWebhook = $settings['stripe_webhook_secret'] ?? null;
         $userKeyModels = $settings['user_key_allowed_models'] ?? null;
 
         $aiSystemPrompt = $settings['ai_system_prompt'] ?? null;
@@ -40,6 +43,12 @@ class SettingsController extends Controller
             'anthropic_api_key_set' => !empty($anthropicKey),
             'gemini_api_key' => $geminiKey ? $this->maskKey($geminiKey) : null,
             'gemini_api_key_set' => !empty($geminiKey),
+            'stripe_secret_key' => $stripeSecret ? $this->maskKey($stripeSecret) : null,
+            'stripe_secret_key_set' => !empty($stripeSecret),
+            'stripe_publishable_key' => $stripePublishable ? $this->maskKey($stripePublishable) : null,
+            'stripe_publishable_key_set' => !empty($stripePublishable),
+            'stripe_webhook_secret' => $stripeWebhook ? $this->maskKey($stripeWebhook) : null,
+            'stripe_webhook_secret_set' => !empty($stripeWebhook),
             'ai_system_prompt' => $aiSystemPrompt,
             'ai_rules' => $aiRules ? json_decode($aiRules, true) : [],
             'ai_tool_descriptions' => json_decode($settings['ai_tool_descriptions'] ?? '{}', true) ?? [],
@@ -59,6 +68,9 @@ class SettingsController extends Controller
             'json2video_api_key' => 'nullable|string',
             'anthropic_api_key' => 'nullable|string',
             'gemini_api_key' => 'nullable|string',
+            'stripe_secret_key' => 'nullable|string',
+            'stripe_publishable_key' => 'nullable|string',
+            'stripe_webhook_secret' => 'nullable|string',
             'ai_system_prompt' => 'nullable|string',
             'ai_rules' => 'nullable|array',
             'ai_rules.*' => 'string',
@@ -99,6 +111,18 @@ class SettingsController extends Controller
 
         if (array_key_exists('gemini_api_key', $validated) && $validated['gemini_api_key'] !== null) {
             Setting::set('gemini_api_key', $validated['gemini_api_key']);
+        }
+
+        if (array_key_exists('stripe_secret_key', $validated) && $validated['stripe_secret_key'] !== null) {
+            Setting::set('stripe_secret_key', $validated['stripe_secret_key']);
+        }
+
+        if (array_key_exists('stripe_publishable_key', $validated) && $validated['stripe_publishable_key'] !== null) {
+            Setting::set('stripe_publishable_key', $validated['stripe_publishable_key']);
+        }
+
+        if (array_key_exists('stripe_webhook_secret', $validated) && $validated['stripe_webhook_secret'] !== null) {
+            Setting::set('stripe_webhook_secret', $validated['stripe_webhook_secret']);
         }
 
         if (array_key_exists('ai_system_prompt', $validated)) {
