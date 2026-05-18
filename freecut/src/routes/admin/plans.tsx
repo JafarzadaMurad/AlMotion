@@ -24,6 +24,10 @@ const ALL_MODELS = [
   { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Anthropic top-tier reasoning' },
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Anthropic balanced default' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Anthropic fast & cheap' },
+  // Google Gemini
+  { id: 'gemini-3.1-pro-high', label: 'Gemini 3.1 Pro (High)', desc: 'Pro with dynamic thinking budget' },
+  { id: 'gemini-3.1-pro-low', label: 'Gemini 3.1 Pro (Low)', desc: 'Pro with capped thinking budget' },
+  { id: 'gemini-3-flash', label: 'Gemini 3 Flash', desc: 'Fast multimodal model' },
 ];
 
 interface PlanForm {

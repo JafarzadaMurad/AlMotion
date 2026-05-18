@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Ai\AnthropicProvider;
+use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\OpenAiProvider;
 use App\Services\Ai\ProviderRegistry;
 use Illuminate\Support\ServiceProvider;
@@ -21,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
             return new ProviderRegistry([
                 new OpenAiProvider(),
                 new AnthropicProvider(),
-                // GeminiProvider lands in the next commit.
+                new GeminiProvider(),
             ]);
         });
     }

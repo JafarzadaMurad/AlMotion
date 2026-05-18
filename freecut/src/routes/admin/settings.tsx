@@ -23,6 +23,10 @@ const ALL_MODELS = [
   { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Anthropic top-tier reasoning' },
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Anthropic balanced default' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Anthropic fast & cheap' },
+  // Google Gemini
+  { id: 'gemini-3.1-pro-high', label: 'Gemini 3.1 Pro (High)', desc: 'Pro with dynamic thinking budget' },
+  { id: 'gemini-3.1-pro-low', label: 'Gemini 3.1 Pro (Low)', desc: 'Pro with capped thinking budget' },
+  { id: 'gemini-3-flash', label: 'Gemini 3 Flash', desc: 'Fast multimodal model' },
 ];
 
 interface AdminSettings {
@@ -40,6 +44,8 @@ interface AdminSettings {
   json2video_api_key_set: boolean;
   anthropic_api_key: string | null;
   anthropic_api_key_set: boolean;
+  gemini_api_key: string | null;
+  gemini_api_key_set: boolean;
 }
 
 export const Route = createFileRoute('/admin/settings')({
@@ -60,6 +66,7 @@ function SettingsPage() {
   const [heygenKey, setHeygenKey] = useState('');
   const [json2videoKey, setJson2videoKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
   const [allowUserKeys, setAllowUserKeys] = useState(true);
   const [userKeyModels, setUserKeyModels] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -88,6 +95,7 @@ function SettingsPage() {
       if (heygenKey) payload.heygen_api_key = heygenKey;
       if (json2videoKey) payload.json2video_api_key = json2videoKey;
       if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+      if (geminiKey) payload.gemini_api_key = geminiKey;
 
       await ApiClient.put('/admin/settings', payload);
 
@@ -100,6 +108,7 @@ function SettingsPage() {
       setHeygenKey('');
       setJson2videoKey('');
       setAnthropicKey('');
+      setGeminiKey('');
       setMessage('Settings saved successfully');
     } finally {
       setSaving(false);
@@ -385,6 +394,40 @@ function SettingsPage() {
             }
             value={anthropicKey}
             onChange={(e) => setAnthropicKey(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Google Gemini API Key */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            Google Gemini API Key
+          </h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            Used for Gemini models (3.1 Pro High/Low, 3 Flash). Get your
+            key from aistudio.google.com.
+          </p>
+
+          {settings?.gemini_api_key_set && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
+                Set
+              </span>
+              <span className="font-mono text-sm text-zinc-400">
+                {settings.gemini_api_key}
+              </span>
+            </div>
+          )}
+
+          <input
+            type="password"
+            placeholder={
+              settings?.gemini_api_key_set
+                ? 'Enter new key to replace...'
+                : 'AIzaSy...'
+            }
+            value={geminiKey}
+            onChange={(e) => setGeminiKey(e.target.value)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
           />
         </div>

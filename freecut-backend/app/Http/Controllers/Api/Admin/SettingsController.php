@@ -17,6 +17,7 @@ class SettingsController extends Controller
         $wavespeedKey = $settings['wavespeed_api_key'] ?? null;
         $json2videoKey = $settings['json2video_api_key'] ?? null;
         $anthropicKey = $settings['anthropic_api_key'] ?? null;
+        $geminiKey = $settings['gemini_api_key'] ?? null;
         $userKeyModels = $settings['user_key_allowed_models'] ?? null;
 
         $aiSystemPrompt = $settings['ai_system_prompt'] ?? null;
@@ -37,6 +38,8 @@ class SettingsController extends Controller
             'json2video_api_key_set' => !empty($json2videoKey),
             'anthropic_api_key' => $anthropicKey ? $this->maskKey($anthropicKey) : null,
             'anthropic_api_key_set' => !empty($anthropicKey),
+            'gemini_api_key' => $geminiKey ? $this->maskKey($geminiKey) : null,
+            'gemini_api_key_set' => !empty($geminiKey),
             'ai_system_prompt' => $aiSystemPrompt,
             'ai_rules' => $aiRules ? json_decode($aiRules, true) : [],
             'ai_tool_descriptions' => json_decode($settings['ai_tool_descriptions'] ?? '{}', true) ?? [],
@@ -55,6 +58,7 @@ class SettingsController extends Controller
             'heygen_api_key' => 'nullable|string',
             'json2video_api_key' => 'nullable|string',
             'anthropic_api_key' => 'nullable|string',
+            'gemini_api_key' => 'nullable|string',
             'ai_system_prompt' => 'nullable|string',
             'ai_rules' => 'nullable|array',
             'ai_rules.*' => 'string',
@@ -91,6 +95,10 @@ class SettingsController extends Controller
 
         if (array_key_exists('anthropic_api_key', $validated) && $validated['anthropic_api_key'] !== null) {
             Setting::set('anthropic_api_key', $validated['anthropic_api_key']);
+        }
+
+        if (array_key_exists('gemini_api_key', $validated) && $validated['gemini_api_key'] !== null) {
+            Setting::set('gemini_api_key', $validated['gemini_api_key']);
         }
 
         if (array_key_exists('ai_system_prompt', $validated)) {
