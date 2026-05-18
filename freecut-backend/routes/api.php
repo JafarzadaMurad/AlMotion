@@ -97,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/settings', [UserSettingsController::class, 'update']);
 
     // Stripe — billing
+    Route::get('/plans', [\App\Http\Controllers\Api\Admin\PlanController::class, 'index']);
     Route::post('/stripe/checkout', [StripeController::class, 'createCheckout']);
     Route::post('/stripe/portal', [StripeController::class, 'createPortal']);
     Route::post('/stripe/sync', [StripeController::class, 'syncSubscription']);

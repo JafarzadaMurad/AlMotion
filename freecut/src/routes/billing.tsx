@@ -31,10 +31,7 @@ function BillingPage() {
     const load = async () => {
       setLoading(true);
       try {
-        // Reuse the admin endpoint — non-admin users see plans through /auth/me but
-        // for a full list we expose admin/plans (read-only for everyone with token).
-        // For now we fetch via a public-ish path: list plans the user could subscribe to.
-        const list = await ApiClient.get<Plan[]>('/admin/plans').catch(() => [] as Plan[]);
+        const list = await ApiClient.get<Plan[]>('/plans').catch(() => [] as Plan[]);
         setPlans(list);
       } finally {
         setLoading(false);
