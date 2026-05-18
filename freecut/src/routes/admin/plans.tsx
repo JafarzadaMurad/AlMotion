@@ -35,6 +35,8 @@ interface PlanForm {
   max_projects: number;
   max_storage_mb: number;
   max_ai_tokens_monthly: number;
+  anthropic_tokens_monthly: number;
+  gemini_tokens_monthly: number;
   price_monthly: number;
   is_default: boolean;
   can_use_own_api_key: boolean;
@@ -53,6 +55,8 @@ const emptyForm: PlanForm = {
   max_projects: 3,
   max_storage_mb: 500,
   max_ai_tokens_monthly: 50000,
+  anthropic_tokens_monthly: 0,
+  gemini_tokens_monthly: 0,
   price_monthly: 0,
   is_default: false,
   can_use_own_api_key: false,
@@ -106,6 +110,8 @@ function PlansPage() {
       max_projects: plan.max_projects,
       max_storage_mb: plan.max_storage_mb,
       max_ai_tokens_monthly: plan.max_ai_tokens_monthly,
+      anthropic_tokens_monthly: (p as any).anthropic_tokens_monthly ?? 0,
+      gemini_tokens_monthly: (p as any).gemini_tokens_monthly ?? 0,
       price_monthly: parseFloat(plan.price_monthly),
       is_default: plan.is_default,
       can_use_own_api_key: p.can_use_own_api_key ?? false,
@@ -250,13 +256,35 @@ function PlansPage() {
                 }
               />
               <FormField
-                label="AI Tokens / Month"
+                label="OpenAI Tokens / Month"
                 type="number"
                 value={String(form.max_ai_tokens_monthly)}
                 onChange={(v) =>
                   setForm((f) => ({
                     ...f,
                     max_ai_tokens_monthly: parseInt(v) || 0,
+                  }))
+                }
+              />
+              <FormField
+                label="Anthropic Tokens / Month"
+                type="number"
+                value={String(form.anthropic_tokens_monthly)}
+                onChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    anthropic_tokens_monthly: parseInt(v) || 0,
+                  }))
+                }
+              />
+              <FormField
+                label="Gemini Tokens / Month"
+                type="number"
+                value={String(form.gemini_tokens_monthly)}
+                onChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    gemini_tokens_monthly: parseInt(v) || 0,
                   }))
                 }
               />

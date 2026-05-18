@@ -2,12 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Ai\ProviderRegistry;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckPlanLimits
 {
+    public function __construct(private ProviderRegistry $providers)
+    {
+    }
+
     public function handle(Request $request, Closure $next, string $limitType): Response
     {
         $user = $request->user();
@@ -25,7 +30,6 @@ class CheckPlanLimits
         // If no plan assigned, use most restrictive defaults
         $maxProjects = $plan?->max_projects ?? 3;
         $maxStorageMb = $plan?->max_storage_mb ?? 500;
-        $maxTokens = $plan?->max_ai_tokens_monthly ?? 50000;
 
         switch ($limitType) {
             case 'projects':
@@ -51,14 +55,35 @@ class CheckPlanLimits
                 break;
 
             case 'tokens':
-                // Reset monthly tokens if needed
                 $this->resetTokensIfNeeded($user);
 
-                if ($user->tokens_used_this_month >= $maxTokens) {
+                // Per-provider quota: look at the requested model, find which
+                // provider serves it, then compare that provider's user-usage
+                // column against the plan's per-provider monthly cap.
+                $requestedModel = $request->json('model', '');
+                $provider = $requestedModel
+                    ? $this->providers->forModel($requestedModel)
+                    : null;
+
+                if ($provider) {
+                    $usageColumn = $provider->userUsageColumn();
+                    $quotaColumn = $provider->planQuotaColumn();
+                    $used = (int) ($user->{$usageColumn} ?? 0);
+                    $cap = (int) ($plan?->{$quotaColumn} ?? 0);
+                } else {
+                    // Unknown model or no model in body — fall back to the
+                    // OpenAI counter so existing routes that don't carry a
+                    // model field (e.g. Whisper transcription) keep working.
+                    $used = (int) ($user->tokens_used_this_month ?? 0);
+                    $cap = (int) ($plan?->max_ai_tokens_monthly ?? 50000);
+                }
+
+                if ($cap > 0 && $used >= $cap) {
                     return response()->json([
                         'message' => 'AI token limit reached for this month.',
-                        'limit' => $maxTokens,
-                        'used' => $user->tokens_used_this_month,
+                        'provider' => $provider?->name() ?? 'openai',
+                        'limit' => $cap,
+                        'used' => $used,
                         'upgrade_required' => true,
                     ], 429);
                 }
@@ -73,6 +98,8 @@ class CheckPlanLimits
         if (!$user->tokens_reset_at || $user->tokens_reset_at->diffInDays(now()) >= 30) {
             $user->update([
                 'tokens_used_this_month' => 0,
+                'anthropic_tokens_used_this_month' => 0,
+                'gemini_tokens_used_this_month' => 0,
                 'tokens_reset_at' => now(),
             ]);
         }
