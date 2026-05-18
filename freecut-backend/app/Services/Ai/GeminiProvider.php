@@ -175,12 +175,24 @@ class GeminiProvider implements AiProvider
                     $toolCallIdToName[$callId] = $name;
                     $args = $call['function']['arguments'] ?? '{}';
                     $decoded = is_array($args) ? $args : (json_decode($args, true) ?: []);
-                    $parts[] = [
+                    $part = [
                         'functionCall' => [
                             'name' => $name,
                             'args' => (object) $decoded,
                         ],
                     ];
+                    // Gemini 3 demands the thoughtSignature from the previous
+                    // turn echo back next to its functionCall so the model
+                    // can resume its reasoning chain. We stash it on the
+                    // OpenAI tool_call as _thought_signature when we receive
+                    // a response and read it back here.
+                    $sig = $call['function']['_thought_signature']
+                        ?? $call['_thought_signature']
+                        ?? null;
+                    if (!empty($sig)) {
+                        $part['thoughtSignature'] = $sig;
+                    }
+                    $parts[] = $part;
                 }
                 if (empty($parts)) {
                     $parts[] = ['text' => ''];
@@ -326,18 +338,34 @@ class GeminiProvider implements AiProvider
         $textParts = [];
         $toolCalls = [];
 
+        // Gemini 3 emits a `thoughtSignature` on individual parts (text or
+        // functionCall). We capture the most recent signature we see so we
+        // can attach it to the next tool_call we emit — that signature must
+        // be echoed back to Gemini on the next turn or it complains:
+        // "Function call is missing a thought_signature in functionCall
+        // parts." See ai.google.dev/gemini-api/docs/thought-signatures.
+        $pendingSignature = null;
         foreach ($parts as $part) {
+            if (isset($part['thoughtSignature'])) {
+                $pendingSignature = $part['thoughtSignature'];
+            }
             if (isset($part['text'])) {
                 $textParts[] = (string) $part['text'];
             } elseif (isset($part['functionCall'])) {
                 $fc = $part['functionCall'];
+                $sig = $fc['thoughtSignature'] ?? $pendingSignature;
+                $pendingSignature = null;
+                $function = [
+                    'name' => $fc['name'] ?? '',
+                    'arguments' => json_encode($fc['args'] ?? (object) [], JSON_UNESCAPED_UNICODE),
+                ];
+                if (!empty($sig)) {
+                    $function['_thought_signature'] = $sig;
+                }
                 $toolCalls[] = [
                     'id' => 'call_' . Str::random(10),
                     'type' => 'function',
-                    'function' => [
-                        'name' => $fc['name'] ?? '',
-                        'arguments' => json_encode($fc['args'] ?? (object) [], JSON_UNESCAPED_UNICODE),
-                    ],
+                    'function' => $function,
                 ];
             }
         }
