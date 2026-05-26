@@ -17,17 +17,39 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+            'plan_id' => 'nullable|integer|exists:plans,id',
         ]);
 
-        // Attach the default plan on signup. Without this new users got plan_id=NULL and silently
-        // fell back to CheckPlanLimits' hard-coded defaults (3 projects / 500 MB / 50k tokens).
-        $defaultPlan = Plan::where('is_default', true)->first();
+        // Plan resolution: caller may pass plan_id, but only free plans are
+        // self-serve at signup. Paid tiers must go through Stripe Checkout
+        // after registration. If no plan_id is sent (or a paid one slips
+        // through), we fall back to the default Free plan.
+        $selectedPlan = null;
+        if (!empty($validated['plan_id'])) {
+            $candidate = Plan::find($validated['plan_id']);
+            if ($candidate && (float) $candidate->price_monthly === 0.0) {
+                $selectedPlan = $candidate;
+            }
+        }
+        if (!$selectedPlan) {
+            $selectedPlan = Plan::where('is_default', true)->first()
+                ?? Plan::where('price_monthly', 0)->orderBy('id')->first();
+        }
+
+        // Free plans can carry a trial_days cap; if set, mark when the
+        // free access expires. Stripe webhooks for paid plans will
+        // overwrite subscription_ends_at on upgrade.
+        $endsAt = null;
+        if ($selectedPlan && (int) ($selectedPlan->trial_days ?? 0) > 0) {
+            $endsAt = now()->addDays((int) $selectedPlan->trial_days);
+        }
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'plan_id' => $defaultPlan?->id,
+            'plan_id' => $selectedPlan?->id,
+            'subscription_ends_at' => $endsAt,
         ]);
 
         $token = $user->createToken('auth-token')->plainTextToken;

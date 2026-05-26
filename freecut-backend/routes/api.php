@@ -23,6 +23,15 @@ use App\Http\Controllers\Api\StripeController;
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 
+// Public — so the registration form can render plan cards without a token.
+Route::get('/plans/public', function () {
+    return \App\Models\Plan::orderBy('price_monthly')->get([
+        'id', 'name', 'slug', 'price_monthly', 'trial_days',
+        'max_projects', 'max_storage_mb', 'max_ai_tokens_monthly',
+        'is_default', 'stripe_price_id',
+    ]);
+});
+
 // Google OAuth (public — browser hits these directly during redirect dance)
 Route::get('/auth/google/redirect', [SocialAuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);

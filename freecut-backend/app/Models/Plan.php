@@ -16,6 +16,7 @@ class Plan extends Model
         'anthropic_tokens_monthly',
         'gemini_tokens_monthly',
         'price_monthly',
+        'trial_days',
         'is_default',
         'features',
         'can_use_own_api_key',

@@ -41,4 +41,5 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   password_confirmation: string;
+  plan_id?: number;
 }

@@ -38,6 +38,7 @@ interface PlanForm {
   anthropic_tokens_monthly: number;
   gemini_tokens_monthly: number;
   price_monthly: number;
+  trial_days: number;
   is_default: boolean;
   can_use_own_api_key: boolean;
   can_generate_broll: boolean;
@@ -59,6 +60,7 @@ const emptyForm: PlanForm = {
   anthropic_tokens_monthly: 0,
   gemini_tokens_monthly: 0,
   price_monthly: 0,
+  trial_days: 0,
   is_default: false,
   can_use_own_api_key: false,
   can_generate_broll: false,
@@ -115,6 +117,7 @@ function PlansPage() {
       anthropic_tokens_monthly: (p as any).anthropic_tokens_monthly ?? 0,
       gemini_tokens_monthly: (p as any).gemini_tokens_monthly ?? 0,
       price_monthly: parseFloat(plan.price_monthly),
+      trial_days: (p as any).trial_days ?? 0,
       is_default: plan.is_default,
       can_use_own_api_key: p.can_use_own_api_key ?? false,
       can_generate_broll: (p as any).can_generate_broll ?? false,
@@ -308,6 +311,14 @@ function PlansPage() {
                 value={form.stripe_price_id}
                 onChange={(v) =>
                   setForm((f) => ({ ...f, stripe_price_id: v }))
+                }
+              />
+              <FormField
+                label="Trial / free period (days)"
+                type="number"
+                value={String(form.trial_days)}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, trial_days: parseInt(v) || 0 }))
                 }
               />
               <label className="flex items-center gap-2 text-sm text-zinc-300">
