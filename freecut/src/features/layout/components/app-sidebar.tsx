@@ -29,6 +29,7 @@ const NAV_ITEMS = [
 const ADMIN_ITEMS = [
   { to: '/admin/dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/plans' as const, label: 'Plans', icon: CreditCard },
+  { to: '/admin/payments' as const, label: 'Payments', icon: CreditCard },
   { to: '/admin/users' as const, label: 'Users', icon: Users },
   { to: '/admin/agents' as const, label: 'Agents', icon: Bot },
   { to: '/admin/ai-config' as const, label: 'AI Config', icon: Brain },
