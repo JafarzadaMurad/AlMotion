@@ -236,18 +236,23 @@ function McpIntegrationPage() {
         {/* Config snippets */}
         <div className="space-y-6">
           <ConfigSnippet
-            title="Claude Desktop"
-            subtitle="~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%\\Claude\\claude_desktop_config.json (Windows)"
-            json={`{\n  "mcpServers": {\n    "almotion": {\n      "url": "${serverUrl}",\n      "headers": {\n        "Authorization": "Bearer YOUR_TOKEN_HERE"\n      }\n    }\n  }\n}`}
+            title="Claude Desktop (Windows)"
+            subtitle={'%APPDATA%\\Claude\\claude_desktop_config.json — uses the mcp-remote bridge (requires Node.js installed locally)'}
+            json={`{\n  "mcpServers": {\n    "almotion": {\n      "command": "cmd",\n      "args": [\n        "/c",\n        "npx",\n        "-y",\n        "mcp-remote",\n        "${serverUrl}",\n        "--header",\n        "Authorization: Bearer YOUR_TOKEN_HERE"\n      ]\n    }\n  }\n}`}
+          />
+          <ConfigSnippet
+            title="Claude Desktop (macOS / Linux)"
+            subtitle="~/Library/Application Support/Claude/claude_desktop_config.json (macOS) — also needs Node.js"
+            json={`{\n  "mcpServers": {\n    "almotion": {\n      "command": "npx",\n      "args": [\n        "-y",\n        "mcp-remote",\n        "${serverUrl}",\n        "--header",\n        "Authorization: Bearer YOUR_TOKEN_HERE"\n      ]\n    }\n  }\n}`}
           />
           <ConfigSnippet
             title="Cursor"
-            subtitle=".cursor/mcp.json in your project, or ~/.cursor/mcp.json globally"
+            subtitle=".cursor/mcp.json in your project, or ~/.cursor/mcp.json globally. Native remote MCP support."
             json={`{\n  "mcpServers": {\n    "almotion": {\n      "url": "${serverUrl}",\n      "headers": {\n        "Authorization": "Bearer YOUR_TOKEN_HERE"\n      }\n    }\n  }\n}`}
           />
           <ConfigSnippet
             title="Claude Code"
-            subtitle="~/.claude.json or per-project .claude.json"
+            subtitle="~/.claude.json or per-project .claude.json. Native remote MCP support."
             json={`{\n  "mcpServers": {\n    "almotion": {\n      "url": "${serverUrl}",\n      "headers": {\n        "Authorization": "Bearer YOUR_TOKEN_HERE"\n      }\n    }\n  }\n}`}
           />
 
