@@ -38,6 +38,12 @@ import type { MediaMetadata } from '@/types/storage';
 
 const logger = createLogger('MediaSyncService');
 
+export interface HydrationProgress {
+  active: boolean;
+  downloaded: number;
+  total: number;
+}
+
 function opfsPathForMedia(mediaId: string): string {
   return `content/${mediaId.slice(0, 2)}/${mediaId.slice(2, 4)}/${mediaId}/data`;
 }
@@ -78,6 +84,10 @@ export async function uploadMediaToServer(
       fileName: media.fileName,
       type,
       clientMediaId: media.id,
+      duration: media.duration,
+      width: media.width,
+      height: media.height,
+      fps: media.fps,
     });
 
     const updated: Partial<MediaMetadata> = {
@@ -161,6 +171,7 @@ export async function hydrateProjectMediaFromServer(
       const opfsPath = opfsPathForMedia(clientId);
       await opfsService.saveFile(opfsPath, buf);
 
+      const fpsNum = row.fps == null ? 0 : Number(row.fps);
       const meta: MediaMetadata = {
         id: clientId,
         storageType: 'opfs',
@@ -171,7 +182,7 @@ export async function hydrateProjectMediaFromServer(
         duration: row.duration ?? 0,
         width: row.width ?? 0,
         height: row.height ?? 0,
-        fps: 0,
+        fps: Number.isFinite(fpsNum) ? fpsNum : 0,
         codec: '',
         bitrate: 0,
         tags: [],

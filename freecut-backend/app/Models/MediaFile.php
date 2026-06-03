@@ -20,6 +20,7 @@ class MediaFile extends Model
         'duration',
         'width',
         'height',
+        'fps',
         'hash',
         'transcript_data',
     ];

@@ -21,6 +21,14 @@ interface BackendProject {
 // --- Mappers ---
 
 function backendToFrontend(bp: BackendProject): Project {
+  // schemaVersion is serialized inside timeline_data by the editor on save.
+  // Read it back here so the loader's "needs upgrade?" check doesn't
+  // misdetect a fresh v9 project as v1 (which is what happens when
+  // schemaVersion is missing from Project and the heuristic falls back to
+  // "has timeline -> assume v1").
+  const tlWithVersion = bp.timeline_data as
+    | (NonNullable<BackendProject['timeline_data']> & { schemaVersion?: number })
+    | null;
   return {
     id: String(bp.id),
     name: bp.name,
@@ -28,6 +36,7 @@ function backendToFrontend(bp: BackendProject): Project {
     createdAt: new Date(bp.created_at).getTime(),
     updatedAt: new Date(bp.updated_at).getTime(),
     duration: 0,
+    schemaVersion: tlWithVersion?.schemaVersion,
     metadata: {
       width: bp.width,
       height: bp.height,
@@ -141,6 +150,7 @@ export interface ServerMediaFile {
   duration: number | null;
   width: number | null;
   height: number | null;
+  fps: number | string | null;
   hash: string | null;
   created_at: string;
 }
@@ -161,6 +171,10 @@ export async function uploadProjectMedia(
     fileName: string;
     type: 'video' | 'audio' | 'image';
     clientMediaId: string;
+    duration?: number;
+    width?: number;
+    height?: number;
+    fps?: number;
   }
 ): Promise<ServerMediaFile> {
   const form = new FormData();
@@ -172,5 +186,21 @@ export async function uploadProjectMedia(
   form.append('file', fileForUpload, args.fileName);
   form.append('type', args.type);
   form.append('client_media_id', args.clientMediaId);
+  // Send the metadata we already extracted at import time so the server
+  // doesn't have to re-probe with ffprobe — and so cross-device hydration
+  // recreates the IndexedDB row with the correct duration / dimensions /
+  // fps instead of a 0-frame placeholder.
+  if (args.duration !== undefined && Number.isFinite(args.duration)) {
+    form.append('duration', String(args.duration));
+  }
+  if (args.width !== undefined && Number.isFinite(args.width)) {
+    form.append('width', String(args.width));
+  }
+  if (args.height !== undefined && Number.isFinite(args.height)) {
+    form.append('height', String(args.height));
+  }
+  if (args.fps !== undefined && Number.isFinite(args.fps)) {
+    form.append('fps', String(args.fps));
+  }
   return ApiClient.upload<ServerMediaFile>(`/projects/${projectId}/media`, form);
 }

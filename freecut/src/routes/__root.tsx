@@ -2,6 +2,7 @@ import { createRootRoute, Outlet, useRouter, useRouterState } from '@tanstack/re
 import { useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/stores/auth-store';
 import { AppSidebar } from '@/features/layout/components/app-sidebar';
+import { MediaHydrationOverlay } from '@/features/media-library/components/media-hydration-overlay';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -37,11 +38,19 @@ function RootComponent() {
 
   if (showSidebar) {
     return (
-      <AppSidebar>
-        <Outlet />
-      </AppSidebar>
+      <>
+        <AppSidebar>
+          <Outlet />
+        </AppSidebar>
+        <MediaHydrationOverlay />
+      </>
     );
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <MediaHydrationOverlay />
+    </>
+  );
 }

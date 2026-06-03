@@ -2,7 +2,11 @@ import { createFileRoute } from '@tanstack/react-router';
 import { CURRENT_SCHEMA_VERSION } from '@/domain/projects/migrations';
 import { fetchProject } from '@/infrastructure/api/project-api';
 import { getProjectLocalData } from '@/infrastructure/storage/indexeddb/project-local-data';
-import { hydrateProjectMediaFromServer } from '@/features/media-library/services/media-sync-service';
+import {
+  hydrateProjectMediaFromServer,
+  type HydrationProgress,
+} from '@/features/media-library/services/media-sync-service';
+import { setMediaHydrationProgress } from '@/features/media-library/stores/media-hydration-state';
 
 export const Route = createFileRoute('/editor/$projectId')({
   // Editor loader data is tiny and migration state must be fresh on reopen.
@@ -20,8 +24,20 @@ export const Route = createFileRoute('/editor/$projectId')({
     // Cross-device persistence: pull any server-side media into local
     // IndexedDB + OPFS BEFORE the timeline-store does orphan detection.
     // Best-effort — a failure here just means the existing
-    // "Missing Media References" dialog has a chance to fire.
-    await hydrateProjectMediaFromServer(project.id).catch(() => undefined);
+    // "Missing Media References" dialog has a chance to fire. Progress is
+    // published to a zustand-ish store so the editor can render a loading
+    // overlay while the bytes come down.
+    setMediaHydrationProgress({ active: true, downloaded: 0, total: 0 });
+    try {
+      await hydrateProjectMediaFromServer(project.id, (downloaded, total) => {
+        const progress: HydrationProgress = { active: true, downloaded, total };
+        setMediaHydrationProgress(progress);
+      });
+    } catch {
+      // ignore — fall through to local detection
+    } finally {
+      setMediaHydrationProgress({ active: false, downloaded: 0, total: 0 });
+    }
 
     // Merge with client-only local data
     const localData = await getProjectLocalData(project.id);

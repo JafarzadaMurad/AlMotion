@@ -29,6 +29,10 @@ class MediaFileController extends Controller
             'file' => 'required|file|max:512000', // 500MB max
             'type' => 'required|in:video,audio,image',
             'client_media_id' => 'nullable|string|max:64',
+            'duration' => 'nullable|numeric|min:0',
+            'width' => 'nullable|integer|min:0',
+            'height' => 'nullable|integer|min:0',
+            'fps' => 'nullable|numeric|min:0',
         ]);
 
         $file = $request->file('file');
@@ -55,6 +59,10 @@ class MediaFileController extends Controller
             'mime_type' => $file->getMimeType(),
             'path' => $path,
             'size' => $file->getSize(),
+            'duration' => $request->filled('duration') ? (int) round((float) $request->input('duration')) : null,
+            'width' => $request->input('width'),
+            'height' => $request->input('height'),
+            'fps' => $request->input('fps'),
             'hash' => hash_file('sha256', $file->getRealPath()),
         ]);
 
