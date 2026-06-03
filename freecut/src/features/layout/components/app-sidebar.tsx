@@ -16,6 +16,7 @@ import {
   Users,
   Brain,
   Wrench,
+  Plug,
 } from 'lucide-react';
 import { cn } from '@/shared/ui/cn';
 
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: '/projects' as const, label: 'Projects', icon: FolderOpen },
   { to: '/agents' as const, label: 'Agents', icon: Bot },
   { to: '/billing' as const, label: 'Billing', icon: CreditCard },
+  { to: '/integrations/mcp' as const, label: 'Integrations', icon: Plug },
   { to: '/settings' as const, label: 'Settings', icon: Settings },
 ];
 

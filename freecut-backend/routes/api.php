@@ -18,6 +18,10 @@ use App\Http\Controllers\Api\ChatSessionController;
 use App\Http\Controllers\Api\HeyGenController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\StripeController;
+use App\Http\Controllers\Api\McpController;
+use App\Http\Controllers\Api\McpTokenController;
+use App\Http\Controllers\Api\MediaImportController;
+use App\Http\Controllers\Api\MediaUploadController;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -39,6 +43,17 @@ Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleC
 // Stripe webhook is public — Stripe servers POST here, no user token. Signature is
 // verified inside the controller against STRIPE_WEBHOOK_SECRET when configured.
 Route::post('/stripe/webhook', [StripeController::class, 'webhook']);
+
+// MCP server endpoint — JSON-RPC 2.0 over HTTP. Auth is per-request via Sanctum
+// bearer; rate limited because runaway Claude loops can otherwise rack up real
+// money on HeyGen / WaveSpeed in the tool implementations.
+Route::post('/mcp', [McpController::class, 'handle'])
+    ->middleware(['auth:sanctum', 'throttle:60,1']);
+
+// Signed-URL media upload accept endpoint. Public on purpose — the token in
+// the URL IS the auth and is single-use, short-lived (1h). Used by Claude
+// Code / Cursor to PUT local files without juggling Bearer headers.
+Route::put('/upload/{token}', [MediaUploadController::class, 'acceptUpload']);
 
 // Public proxy (no auth needed — serves HeyGen images through COEP)
 Route::get('/heygen/proxy-image', [HeyGenController::class, 'proxyImage']);
@@ -104,6 +119,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // User settings (own API key)
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
     Route::put('/user/settings', [UserSettingsController::class, 'update']);
+
+    // MCP tokens — user mints / lists / revokes their own MCP-specific tokens
+    // from /integrations/mcp. Plaintext is only returned on creation.
+    Route::get('/user/mcp/tokens', [McpTokenController::class, 'index']);
+    Route::post('/user/mcp/tokens', [McpTokenController::class, 'store']);
+    Route::delete('/user/mcp/tokens/{id}', [McpTokenController::class, 'destroy']);
+
+    // Media import / upload (companion to MCP tools)
+    Route::post('/media/import-from-url', [MediaImportController::class, 'importFromUrl']);
+    Route::post('/media/uploads', [MediaUploadController::class, 'createUploadSession']);
+    Route::post('/media/uploads/{id}/finalize', [MediaUploadController::class, 'finalize']);
 
     // Stripe — billing
     Route::get('/plans', [\App\Http\Controllers\Api\Admin\PlanController::class, 'index']);
