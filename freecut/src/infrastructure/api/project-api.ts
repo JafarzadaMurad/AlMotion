@@ -126,3 +126,51 @@ export async function updateProjectApi(
 export async function deleteProjectApi(id: string): Promise<void> {
   await ApiClient.delete(`/projects/${id}`);
 }
+
+// --- Server-side media inventory (for cross-device project loading) ---
+
+export interface ServerMediaFile {
+  id: number;
+  client_media_id: string | null;
+  name: string;
+  type: 'video' | 'audio' | 'image';
+  mime_type: string;
+  path: string;
+  url: string | null;
+  size: number;
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  hash: string | null;
+  created_at: string;
+}
+
+export async function fetchProjectMedia(projectId: string): Promise<ServerMediaFile[]> {
+  return ApiClient.get<ServerMediaFile[]>(`/projects/${projectId}/media`);
+}
+
+/**
+ * Upload a local media file to the server so the project becomes portable
+ * across devices. The client UUID is sent so the server-side row can be
+ * looked up later by ID rather than by hash.
+ */
+export async function uploadProjectMedia(
+  projectId: string,
+  args: {
+    file: File | Blob;
+    fileName: string;
+    type: 'video' | 'audio' | 'image';
+    clientMediaId: string;
+  }
+): Promise<ServerMediaFile> {
+  const form = new FormData();
+  // FormData wants a File for the filename to round-trip; if we got a Blob
+  // wrap it without losing the extension.
+  const fileForUpload = args.file instanceof File
+    ? args.file
+    : new File([args.file], args.fileName);
+  form.append('file', fileForUpload, args.fileName);
+  form.append('type', args.type);
+  form.append('client_media_id', args.clientMediaId);
+  return ApiClient.upload<ServerMediaFile>(`/projects/${projectId}/media`, form);
+}

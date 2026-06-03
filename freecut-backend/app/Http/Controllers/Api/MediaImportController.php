@@ -42,6 +42,7 @@ class MediaImportController extends Controller
             'project_id' => 'required|integer|exists:projects,id',
             'filename' => 'nullable|string|max:255',
             'type' => 'nullable|in:video,audio,image',
+            'client_media_id' => 'nullable|string|max:64',
         ]);
 
         $project = Project::where('user_id', $user->id)->find($validated['project_id']);
@@ -77,6 +78,7 @@ class MediaImportController extends Controller
         $type = $validated['type'] ?? 'video';
         $media = $project->mediaFiles()->create([
             'user_id' => $user->id,
+            'client_media_id' => $validated['client_media_id'] ?? null,
             'name' => $meta['title'] ?? $finalName,
             'type' => $type,
             'mime_type' => mime_content_type($absolutePath) ?: 'application/octet-stream',

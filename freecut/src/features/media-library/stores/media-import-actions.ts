@@ -5,8 +5,26 @@ import { proxyService } from '../services/proxy-service';
 import { getMimeType } from '../utils/validation';
 import { getSharedProxyKey } from '../utils/proxy-key';
 import { createLogger, createOperationId } from '@/shared/logging/logger';
+import { uploadMediaToServer } from '../services/media-sync-service';
 
 const logger = createLogger('MediaImport');
+
+/**
+ * Fire-and-forget upload of newly imported media to the backend. Each
+ * upload runs independently — a single failure must not block the rest,
+ * and we never await the whole batch because users can edit immediately
+ * while the bytes travel up in the background.
+ */
+function scheduleBackgroundUploads(items: MediaMetadata[], projectId: string): void {
+  for (const item of items) {
+    if (item.serverMediaId) continue; // already synced
+    queueMicrotask(() => {
+      uploadMediaToServer(item, projectId).catch((err) => {
+        logger.warn(`Background sync failed for media ${item.id}`, err);
+      });
+    });
+  }
+}
 
 type Set = (
   partial:
@@ -198,6 +216,8 @@ export function createImportActions(
       unsupportedCodecs: unsupportedCodecFiles.length,
     });
 
+    scheduleBackgroundUploads(results, currentProjectId);
+
     return results;
   };
 
@@ -270,6 +290,8 @@ export function createImportActions(
           failed: failedCount,
           unsupportedCodecs: unsupportedCodecFiles.length,
         });
+
+        scheduleBackgroundUploads(results, currentProjectId);
 
         return results;
       } catch (error) {

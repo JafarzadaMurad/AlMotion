@@ -10,6 +10,7 @@ class MediaFile extends Model
     protected $fillable = [
         'user_id',
         'project_id',
+        'client_media_id',
         'name',
         'type',
         'mime_type',
@@ -26,6 +27,18 @@ class MediaFile extends Model
     protected $casts = [
         'transcript_data' => 'array',
     ];
+
+    protected $appends = ['url'];
+
+    /**
+     * Public URL the browser can fetch the bytes from. Requires
+     * `php artisan storage:link` so /storage/* resolves to
+     * storage/app/public/*.
+     */
+    public function getUrlAttribute(): ?string
+    {
+        return $this->path ? url('storage/' . ltrim($this->path, '/')) : null;
+    }
 
     public function user(): BelongsTo
     {

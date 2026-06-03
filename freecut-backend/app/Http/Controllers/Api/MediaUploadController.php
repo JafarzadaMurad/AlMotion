@@ -151,6 +151,7 @@ class MediaUploadController extends Controller
 
         $media = $project->mediaFiles()->create([
             'user_id' => $user->id,
+            'client_media_id' => $request->input('client_media_id'),
             'name' => $session->filename,
             'type' => $type,
             'mime_type' => $session->content_type ?: (mime_content_type($finalPath) ?: 'application/octet-stream'),

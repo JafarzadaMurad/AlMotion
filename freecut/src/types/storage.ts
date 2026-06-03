@@ -69,6 +69,22 @@ export interface MediaMetadata {
   tags: string[];
   createdAt: number;
   updatedAt: number;
+  /**
+   * Server-side numeric id of the corresponding `media_files` row. Set
+   * once the background upload (after local import) successfully syncs
+   * the file to the backend. Cross-device project load uses the
+   * server-side media inventory (keyed by `client_media_id = this.id`)
+   * to hydrate missing OPFS entries — without this field there is no
+   * link between the client UUID and the backend row.
+   */
+  serverMediaId?: number;
+  /**
+   * Sync state for the cross-device server copy. 'pending' = upload in
+   * flight, 'synced' = serverMediaId is set, 'failed' = last upload
+   * attempt failed and can be retried, 'local-only' = explicitly opted
+   * out (e.g. user disabled sync).
+   */
+  syncStatus?: 'pending' | 'synced' | 'failed' | 'local-only';
 }
 
 // Content record for reference counting in content-addressable storage

@@ -1,0 +1,196 @@
+/**
+ * Cross-device media persistence. The editor stores imported media in
+ * OPFS (origin-private filesystem) for fast playback, but that data is
+ * tied to the browser/profile that did the import. This service handles
+ * the two flows that make a project work on every device the user
+ * signs into:
+ *
+ *  1. upload-after-import: once a clip is in OPFS we POST it to the
+ *     backend so the file lives next to the project_id on the server.
+ *     The client UUID travels with the upload as `client_media_id` so
+ *     the timeline_data JSON (which references that UUID) still
+ *     resolves cleanly on a fresh device.
+ *
+ *  2. hydrate-on-open: when the editor loads a project, we list the
+ *     server's media for that project and re-create any IndexedDB +
+ *     OPFS entries that are missing locally. After this runs, the
+ *     existing orphan-detection in timeline-store-facade finds
+ *     everything it needs.
+ *
+ * Both flows are best-effort: any failure logs and continues so a
+ * temporary backend hiccup never blocks editing.
+ */
+
+import {
+  createMedia as createMediaDB,
+  getMedia as getMediaDB,
+  updateMedia as updateMediaDB,
+  associateMediaWithProject,
+} from '@/infrastructure/storage/indexeddb';
+import {
+  fetchProjectMedia,
+  uploadProjectMedia,
+  type ServerMediaFile,
+} from '@/infrastructure/api/project-api';
+import { opfsService } from './opfs-service';
+import { createLogger } from '@/shared/logging/logger';
+import type { MediaMetadata } from '@/types/storage';
+
+const logger = createLogger('MediaSyncService');
+
+function opfsPathForMedia(mediaId: string): string {
+  return `content/${mediaId.slice(0, 2)}/${mediaId.slice(2, 4)}/${mediaId}/data`;
+}
+
+/**
+ * Push a single locally-imported media file up to the backend so it
+ * outlives this browser profile. Idempotent — the server returns the
+ * existing row if `client_media_id` is already known for the project.
+ *
+ * On success the IndexedDB row is updated with `serverMediaId` and
+ * `syncStatus: 'synced'`. On failure status flips to 'failed' so a UI
+ * can offer a manual retry.
+ */
+export async function uploadMediaToServer(
+  media: MediaMetadata,
+  projectId: string,
+): Promise<MediaMetadata> {
+  await updateMediaDB(media.id, { syncStatus: 'pending' });
+
+  try {
+    let blob: Blob;
+    if (media.storageType === 'opfs' && media.opfsPath) {
+      const buf = await opfsService.getFile(media.opfsPath);
+      blob = new Blob([buf], { type: media.mimeType || 'application/octet-stream' });
+    } else if (media.storageType === 'handle' && media.fileHandle) {
+      blob = await media.fileHandle.getFile();
+    } else {
+      throw new Error(`Media ${media.id} has no readable source for upload`);
+    }
+
+    const type: 'video' | 'audio' | 'image' =
+      media.mimeType.startsWith('audio/') ? 'audio'
+        : media.mimeType.startsWith('image/') ? 'image'
+          : 'video';
+
+    const serverRow = await uploadProjectMedia(projectId, {
+      file: blob,
+      fileName: media.fileName,
+      type,
+      clientMediaId: media.id,
+    });
+
+    const updated: Partial<MediaMetadata> = {
+      serverMediaId: serverRow.id,
+      syncStatus: 'synced',
+    };
+    await updateMediaDB(media.id, updated);
+    logger.info(`Uploaded media ${media.id} -> server media #${serverRow.id}`);
+    return { ...media, ...updated };
+  } catch (err) {
+    logger.warn(`Upload failed for media ${media.id}`, err);
+    await updateMediaDB(media.id, { syncStatus: 'failed' });
+    throw err;
+  }
+}
+
+/**
+ * Pull anything the server has for this project into local IndexedDB +
+ * OPFS that we don't already have. Run this BEFORE orphan detection
+ * fires on project load.
+ *
+ * The contract: when this resolves, every server-known media row has
+ * a matching IndexedDB row keyed by `client_media_id` (or the numeric
+ * server id stringified, as a fallback for server-only imports from
+ * MCP / yt-dlp that never had a client UUID).
+ */
+export async function hydrateProjectMediaFromServer(
+  projectId: string,
+  onProgress?: (downloaded: number, total: number) => void,
+): Promise<{ added: number; skipped: number; failed: number }> {
+  let serverMedia: ServerMediaFile[];
+  try {
+    serverMedia = await fetchProjectMedia(projectId);
+  } catch (err) {
+    logger.warn(`Could not fetch server media for project ${projectId}`, err);
+    return { added: 0, skipped: 0, failed: 0 };
+  }
+
+  if (serverMedia.length === 0) {
+    return { added: 0, skipped: 0, failed: 0 };
+  }
+
+  let added = 0;
+  let skipped = 0;
+  let failed = 0;
+  let downloaded = 0;
+
+  for (const row of serverMedia) {
+    const clientId = row.client_media_id ?? `server-${row.id}`;
+    const existing = await getMediaDB(clientId).catch(() => undefined);
+    if (existing) {
+      // Already local — just make sure the project association is in
+      // place (the row might predate this device's project list).
+      try {
+        await associateMediaWithProject(projectId, clientId);
+        if (!existing.serverMediaId) {
+          await updateMediaDB(clientId, {
+            serverMediaId: row.id,
+            syncStatus: 'synced',
+          });
+        }
+      } catch (err) {
+        logger.warn(`Re-associating media ${clientId} with project ${projectId} failed`, err);
+      }
+      skipped++;
+      continue;
+    }
+
+    if (!row.url) {
+      logger.warn(`Server media ${row.id} has no public URL — skipping`);
+      failed++;
+      continue;
+    }
+
+    try {
+      const resp = await fetch(row.url, { credentials: 'omit' });
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      const buf = await resp.arrayBuffer();
+      const opfsPath = opfsPathForMedia(clientId);
+      await opfsService.saveFile(opfsPath, buf);
+
+      const meta: MediaMetadata = {
+        id: clientId,
+        storageType: 'opfs',
+        opfsPath,
+        fileName: row.name,
+        fileSize: row.size,
+        mimeType: row.mime_type,
+        duration: row.duration ?? 0,
+        width: row.width ?? 0,
+        height: row.height ?? 0,
+        fps: 0,
+        codec: '',
+        bitrate: 0,
+        tags: [],
+        createdAt: Date.parse(row.created_at) || Date.now(),
+        updatedAt: Date.now(),
+        serverMediaId: row.id,
+        syncStatus: 'synced',
+      };
+      await createMediaDB(meta);
+      await associateMediaWithProject(projectId, clientId);
+      added++;
+      downloaded++;
+      onProgress?.(downloaded, serverMedia.length);
+    } catch (err) {
+      logger.warn(`Hydration failed for server media ${row.id}`, err);
+      failed++;
+    }
+  }
+
+  logger.info(`Hydrated project ${projectId}: +${added} new / ${skipped} kept / ${failed} failed`);
+  return { added, skipped, failed };
+}

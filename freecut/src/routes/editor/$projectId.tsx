@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { CURRENT_SCHEMA_VERSION } from '@/domain/projects/migrations';
 import { fetchProject } from '@/infrastructure/api/project-api';
 import { getProjectLocalData } from '@/infrastructure/storage/indexeddb/project-local-data';
+import { hydrateProjectMediaFromServer } from '@/features/media-library/services/media-sync-service';
 
 export const Route = createFileRoute('/editor/$projectId')({
   // Editor loader data is tiny and migration state must be fresh on reopen.
@@ -15,6 +16,12 @@ export const Route = createFileRoute('/editor/$projectId')({
     if (!project) {
       throw new Error(`Project not found: ${params.projectId}`);
     }
+
+    // Cross-device persistence: pull any server-side media into local
+    // IndexedDB + OPFS BEFORE the timeline-store does orphan detection.
+    // Best-effort — a failure here just means the existing
+    // "Missing Media References" dialog has a chance to fire.
+    await hydrateProjectMediaFromServer(project.id).catch(() => undefined);
 
     // Merge with client-only local data
     const localData = await getProjectLocalData(project.id);

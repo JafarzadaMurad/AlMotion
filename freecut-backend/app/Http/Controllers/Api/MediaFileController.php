@@ -28,13 +28,28 @@ class MediaFileController extends Controller
         $request->validate([
             'file' => 'required|file|max:512000', // 500MB max
             'type' => 'required|in:video,audio,image',
+            'client_media_id' => 'nullable|string|max:64',
         ]);
 
         $file = $request->file('file');
+
+        // If the client has uploaded this exact media_id before for this
+        // project (e.g. user re-imports the same file on a new device that
+        // already synced), return the existing row instead of duplicating.
+        if ($request->filled('client_media_id')) {
+            $existing = $project->mediaFiles()
+                ->where('client_media_id', $request->input('client_media_id'))
+                ->first();
+            if ($existing) {
+                return response()->json($existing, 200);
+            }
+        }
+
         $path = $file->store("media/{$request->user()->id}/{$project->id}", 'public');
 
         $media = $project->mediaFiles()->create([
             'user_id' => $request->user()->id,
+            'client_media_id' => $request->input('client_media_id'),
             'name' => $file->getClientOriginalName(),
             'type' => $request->type,
             'mime_type' => $file->getMimeType(),
