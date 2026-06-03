@@ -40,6 +40,7 @@ class PlanController extends Controller
             'max_heygen_credits_monthly' => 'integer|min:0',
             'can_create_avatars' => 'boolean',
             'can_use_own_heygen_key' => 'boolean',
+            'can_use_mcp' => 'boolean',
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
@@ -85,6 +86,7 @@ class PlanController extends Controller
             'max_heygen_credits_monthly' => 'integer|min:0',
             'can_create_avatars' => 'boolean',
             'can_use_own_heygen_key' => 'boolean',
+            'can_use_mcp' => 'boolean',
         ]);
 
         if (isset($validated['name'])) {

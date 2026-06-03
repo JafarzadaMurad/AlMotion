@@ -48,6 +48,7 @@ interface PlanForm {
   max_heygen_credits_monthly: number;
   can_create_avatars: boolean;
   can_use_own_heygen_key: boolean;
+  can_use_mcp: boolean;
   allowed_models: string[];
   stripe_price_id: string;
 }
@@ -70,6 +71,7 @@ const emptyForm: PlanForm = {
   max_heygen_credits_monthly: 0,
   can_create_avatars: false,
   can_use_own_heygen_key: false,
+  can_use_mcp: false,
   allowed_models: ['gpt-4o-mini'],
   stripe_price_id: '',
 };
@@ -127,6 +129,7 @@ function PlansPage() {
       max_heygen_credits_monthly: (p as any).max_heygen_credits_monthly ?? 0,
       can_create_avatars: (p as any).can_create_avatars ?? false,
       can_use_own_heygen_key: (p as any).can_use_own_heygen_key ?? false,
+      can_use_mcp: (p as any).can_use_mcp ?? false,
       allowed_models: p.allowed_models ?? ['gpt-4o-mini'],
       stripe_price_id: (p as any).stripe_price_id ?? '',
     });
@@ -342,6 +345,17 @@ function PlansPage() {
                   className="rounded border-zinc-600"
                 />
                 Allow users to use their own OpenAI API key
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={form.can_use_mcp}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, can_use_mcp: e.target.checked }))
+                  }
+                  className="rounded border-zinc-600"
+                />
+                Allow MCP access (Claude Desktop / Code / Cursor integration)
               </label>
               <label className="flex items-center gap-2 text-sm text-zinc-300">
                 <input

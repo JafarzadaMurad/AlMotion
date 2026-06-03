@@ -28,6 +28,7 @@ class Plan extends Model
         'max_heygen_credits_monthly',
         'can_create_avatars',
         'can_use_own_heygen_key',
+        'can_use_mcp',
         'stripe_price_id',
     ];
 
@@ -41,6 +42,7 @@ class Plan extends Model
             'can_use_heygen' => 'boolean',
             'can_create_avatars' => 'boolean',
             'can_use_own_heygen_key' => 'boolean',
+            'can_use_mcp' => 'boolean',
             'features' => 'array',
             'allowed_models' => 'array',
             'price_monthly' => 'decimal:2',
