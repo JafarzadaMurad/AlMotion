@@ -30,13 +30,28 @@ interface CreateProjectUpgradeBackupOptions {
  * The backup remains on the legacy schema version and keeps the original
  * project media associations so it can still be opened independently later.
  */
+/**
+ * The result of attempting to create a local backup. `'skipped'` means the
+ * project doesn't live in IndexedDB on this device (e.g. the user opened it
+ * fresh from another machine) — in that case the only canonical copy is
+ * server-side and we can't / don't need to make a local backup.
+ */
+export type ProjectUpgradeBackupResult =
+  | { status: 'created'; project: Project }
+  | { status: 'skipped'; reason: 'no-local-copy' };
+
 export async function createProjectUpgradeBackup(
   projectId: string,
   options: CreateProjectUpgradeBackupOptions
-): Promise<Project> {
+): Promise<ProjectUpgradeBackupResult> {
   const project = await getProject(projectId);
   if (!project) {
-    throw new Error(`Project not found: ${projectId}`);
+    // The project isn't in IndexedDB — this device just fetched it from the
+    // server. There is no local state to back up; let the caller proceed
+    // with the in-memory migration. The pre-upgrade copy still exists on
+    // the server until the user explicitly saves the upgraded version.
+    logger.info(`No IndexedDB record for project ${projectId} — skipping local upgrade backup`);
+    return { status: 'skipped', reason: 'no-local-copy' };
   }
 
   const backup = duplicateProject(project);
@@ -72,13 +87,13 @@ export async function createProjectUpgradeBackup(
   }
 
   if (!project.thumbnailId) {
-    return backup;
+    return { status: 'created', project: backup };
   }
 
   try {
     const thumbnail = await getThumbnail(project.thumbnailId);
     if (!thumbnail) {
-      return backup;
+      return { status: 'created', project: backup };
     }
 
     const backupThumbnailId = `project:${backup.id}:cover`;
@@ -95,12 +110,15 @@ export async function createProjectUpgradeBackup(
     });
 
     return {
-      ...backup,
-      thumbnailId: backupThumbnailId,
-      thumbnail: undefined,
+      status: 'created',
+      project: {
+        ...backup,
+        thumbnailId: backupThumbnailId,
+        thumbnail: undefined,
+      },
     };
   } catch (error) {
     logger.warn(`Failed to copy thumbnail for backup project ${backup.id}`, error);
-    return backup;
+    return { status: 'created', project: backup };
   }
 }

@@ -44,10 +44,15 @@ describe('createProjectUpgradeBackup', () => {
       height: 180,
     });
 
-    const backup = await createProjectUpgradeBackup('project-1', {
+    const result = await createProjectUpgradeBackup('project-1', {
       fromVersion: 4,
       toVersion: 9,
     });
+
+    if (result.status !== 'created') {
+      throw new Error(`Expected status 'created', got ${result.status}`);
+    }
+    const backup = result.project;
 
     expect(indexedDbMocks.createProject).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -68,6 +73,19 @@ describe('createProjectUpgradeBackup', () => {
       thumbnailId: `project:${backup.id}:cover`,
       thumbnail: undefined,
     });
+  });
+
+  it("returns status='skipped' when the project is not in IndexedDB", async () => {
+    indexedDbMocks.getProject.mockResolvedValue(undefined);
+
+    const result = await createProjectUpgradeBackup('project-not-local', {
+      fromVersion: 1,
+      toVersion: 9,
+    });
+
+    expect(result).toEqual({ status: 'skipped', reason: 'no-local-copy' });
+    expect(indexedDbMocks.createProject).not.toHaveBeenCalled();
+    expect(indexedDbMocks.associateMediaWithProject).not.toHaveBeenCalled();
   });
 
   it('rolls back the backup project if media association copying fails', async () => {

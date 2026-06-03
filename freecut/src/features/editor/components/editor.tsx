@@ -104,14 +104,22 @@ export const Editor = memo(function Editor({ projectId, project, migration }: Ed
     setIsPreparingUpgrade(true);
 
     try {
-      const backup = await createProjectUpgradeBackup(projectId, {
+      const result = await createProjectUpgradeBackup(projectId, {
         fromVersion: migration.storedSchemaVersion,
         toVersion: migration.currentSchemaVersion,
         backupName,
       });
-      toast.success('Backup created before upgrade', {
-        description: backup.name,
-      });
+      if (result.status === 'created') {
+        toast.success('Backup created before upgrade', {
+          description: result.project.name,
+        });
+      } else {
+        // No local copy on this device — server still holds the original
+        // until we save the upgraded version, so we can proceed safely.
+        toast.message('Upgrading project', {
+          description: 'No local backup on this device — the original stays on the server until you save.',
+        });
+      }
       setUpgradeApproved(true);
     } catch (error) {
       logger.error('Failed to create upgrade backup:', error);
