@@ -34,10 +34,19 @@ class MediaFile extends Model
      * Public URL the browser can fetch the bytes from. Requires
      * `php artisan storage:link` so /storage/* resolves to
      * storage/app/public/*.
+     *
+     * We compose against config('app.url') directly rather than calling
+     * url() so the scheme is taken from APP_URL (https in production)
+     * even on the off-chance TrustProxies isn't seeing X-Forwarded-Proto.
      */
     public function getUrlAttribute(): ?string
     {
-        return $this->path ? url('storage/' . ltrim($this->path, '/')) : null;
+        if (!$this->path) {
+            return null;
+        }
+        $base = rtrim(config('app.url') ?: '', '/');
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', ltrim($this->path, '/'))));
+        return $base . '/storage/' . $encodedPath;
     }
 
     public function user(): BelongsTo
