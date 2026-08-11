@@ -9,7 +9,7 @@ This file is a high-density brief for any new chat session working on AlMotion. 
 Browser-based, AI-assisted multi-track video editor (formerly FreeCut, branded "alMotion AI"). Two parts:
 
 - **Frontend** — `freecut/` — React 19 + TypeScript + Vite SPA. WebGPU effects, WebCodecs export, OPFS/IndexedDB persistence, browser Whisper. **Almost the entire editor (timeline, preview, effects, export, keyframes, composition, player) is purely client-side.** GitHub: `walterlow/freecut.git`.
-- **Backend** — `freecut-backend/` — Laravel 12 SaaS layer (Sanctum auth, plans, AI proxies). **NOT in git.** Adds auth/plans/persistence/AI integrations on top of FreeCut.
+- **Backend** — `freecut-backend/` — Laravel 12 SaaS layer (Sanctum auth, plans, Stripe billing, MCP server, AI proxies). **In git** (same repo). Adds auth/plans/persistence/AI integrations on top of FreeCut.
 
 The backend wraps four AI services: OpenAI (chat + Whisper), HeyGen (AI avatars), WaveSpeed (AI B-roll), and a json2video transcription proxy.
 
@@ -37,7 +37,7 @@ AlMotion/
 │   │   ├── lib/          # gpu-effects, gpu-transitions, gpu-compositor, fonts, ...
 │   │   └── shared/       # logging, state, utils
 │   └── vite.config.ts    # Proxies /api/v1 → 127.0.0.1:8000/api (rewrite)
-├── freecut-backend/      # Backend (Laravel 12, NOT in git)
+├── freecut-backend/      # Backend (Laravel 12, in git)
 │   ├── app/
 │   │   ├── Http/Controllers/Api/  # Auth, Projects, Media, Transcript,
 │   │   │                          # ChatMessage, ChatSession, OpenAi,
@@ -49,7 +49,7 @@ AlMotion/
 │   │                              # Transcript, UserAvatar
 │   ├── routes/api.php             # All API routes (Laravel auto-prefixes /api)
 │   ├── database/migrations/       # 21 migrations
-│   ├── database/database.sqlite   # Dev DB (already migrated)
+│   ├── database/database.sqlite   # Dev DB (gitignored — create + migrate per machine)
 │   └── .env                       # ⚠️ Contains real OPENAI_API_KEY, APP_DEBUG=true
 └── .docs/                # Detailed reference (load on demand)
     ├── 01-backend-audit.md       # Full route table, models, middleware, gotchas
@@ -150,15 +150,54 @@ These are baked into the bundle and need to change for production deploy:
 
 | File:line | Value |
 |---|---|
-| `freecut/src/infrastructure/api/api-client.ts:1` | `http://localhost:8000/api` (base URL) |
-| `freecut/src/infrastructure/ai/openai-service.ts:23` | `http://localhost:8000/api/openai/chat` |
-| `freecut/src/infrastructure/ai/ai-tool-executor.ts:836,985,997` | `http://localhost:8000/api/heygen/proxy-image` |
 | `freecut/src/features/media-library/services/json2video-service.ts:79` | `http://168.231.108.200:2993` (stripped from SRT) |
 | `freecut/src/features/media-library/services/json2video-service.ts:128` | `j2v_mbnW39bhYRc7UXkevMSOctKnd1acIQXY` |
 | `freecut-backend/app/Http/Controllers/Api/OpenAiController.php:84,98,108,113` | Same j2v IP + key |
 | `freecut-backend/.env:7` | Real OpenAI key (`sk-proj-Y0rNDJzZ9zXh…`) |
 
-**Recommendation:** introduce `VITE_API_BASE_URL` env var; rotate the OpenAI + j2v keys.
+The frontend `localhost:8000` hardcodes are **gone** — `api-client.ts` now uses a relative
+`/api/v1` base, which Vite proxies in dev and Caddy rewrites in prod. Only the j2v host/key
+above remain hardcoded.
+
+**Recommendation:** rotate the OpenAI + j2v keys.
+
+---
+
+## Production deployment (VPS)
+
+Live at **https://almotion.tural.ai**, code at `/opt/almotion` (git clone, `git pull` works).
+
+```
+Internet → Caddy (auto-TLS)
+   ├── /api/*      → reverse_proxy http://localhost:8206   (php artisan serve)
+   ├── /storage/*  → Laravel (uploaded media)
+   └── everything else → freecut/dist/  (static SPA)
+```
+
+- Backend `.env` needs `APP_URL=https://almotion.tural.ai` — `MediaFile::getUrlAttribute`
+  composes media URLs from it directly, and `bootstrap/app.php` trusts Caddy's
+  `X-Forwarded-Proto` so generated URLs are https.
+- The **`Caddyfile` in this repo is NOT the production one** — it targets the old Coder
+  workspace (`/home/coder/workspace`, port 8008, `auto_https off`). The real one lives on
+  the VPS, outside the repo.
+- Frontend-only change → `git pull && cd freecut && npm ci && npm run build`. No backend
+  restart, no migration, no Caddy reload. Build needs ~2-3 GB RAM; on a small VPS build
+  locally and `rsync` `freecut/dist/` instead.
+- `php artisan serve` is a dev server (single-threaded) and how it stays alive on the VPS is
+  **not yet known** — no systemd unit has been confirmed. Worth replacing with FrankenPHP or
+  PHP-FPM.
+
+---
+
+## Missing composer dependencies (blocker)
+
+`composer.json` lists only `laravel/framework`, `sanctum`, `tinker` — but the code imports:
+
+- `Stripe\Stripe`, `StripeClient`, `Webhook` in `StripeController` → needs **`stripe/stripe-php`**
+- `Laravel\Socialite\Facades\Socialite` in `SocialAuthController` → needs **`laravel/socialite`**
+
+Neither is in `composer.lock`. Every Stripe route and Google OAuth **fatals** until installed.
+`.env` also lacks `STRIPE_*`, `GOOGLE_*`, `FRONTEND_URL`, `YTDLP_PATH` (see `config/services.php`).
 
 ---
 
@@ -170,7 +209,20 @@ Full architecture documented in [freecut/CLAUDE.md](freecut/CLAUDE.md). Key inva
 - **Timeline mutations**: action modules in `features/timeline/stores/actions/*.ts` use `execute()` wrapper for undo/redo. Never mutate stores directly.
 - **Item types**: discriminated union on `type`: `video | audio | text | image | shape | adjustment | composition`. GIFs use `image` type.
 - **Frame positioning**: Remotion convention — `from` (start frame in project FPS) + `durationInFrames`.
-- **Effects/transitions are GPU-only** — all WebGPU shaders. Legacy CSS-based ones removed in v6 migration.
+- **Effects are WebGPU shaders with a CSS fallback.** 39 GPU effects in `src/lib/gpu-effects/`.
+  When `requestAdapter()` yields no device, `src/lib/gpu-effects/css-fallback.ts` re-renders the
+  10 that have exact CSS equivalents (brightness, contrast, saturation, grayscale, sepia, invert,
+  hue-shift, exposure, gaussian/box blur). The other 29 stay inactive by design — approximating
+  them would diverge from export. Import via `@/infrastructure/gpu/effects`.
+- **Three preview render paths must agree** — a change to one usually needs the others:
+  1. **DOM composition** (idle) — `item-visual-wrapper.tsx` reads `state.cssFilter` from
+     `use-item-visual-state.ts`
+  2. **Fast-scrub canvas** (mouse over timeline, playback) — `client-render-engine.ts`
+  3. **GPU effects overlay** (forced on when an item has effects) — `use-gpu-effects-overlay.ts`,
+     now suppressed entirely when there is no GPU device, since it would paint over path 1
+- **Transitions are NOT GPU-dependent** — they render through DOM/CSS (opacity + transform) and
+  keep working with no adapter. This is why transitions can work while effects appear broken.
+- **Keyframes are plain interpolation** — no GPU involved.
 - **Source-native FPS**: `sourceStart`/`sourceEnd`/`sourceDuration` are in source-native FPS, not project FPS.
 - **Track order**: lower value = visually higher (top of timeline).
 - **Path alias**: `@/*` → `src/*`
@@ -188,10 +240,15 @@ Full architecture documented in [freecut/CLAUDE.md](freecut/CLAUDE.md). Key inva
 5. OpenAI proxy is buffered, no streaming.
 6. HeyGen admin key declared but unused — only user-key path works.
 7. Token reset is rolling 30 days, not calendar-monthly. HeyGen credits never reset.
-8. New users land on `plan_id=NULL` (no auto-default).
+8. ~~New users land on `plan_id=NULL`~~ — **fixed**, `AuthController::register` assigns the
+   default free plan and applies `trial_days`.
 9. SQLite — fine for dev, will hurt under concurrent uploads in prod.
-10. No queue workers; all third-party calls synchronous (timeouts up to 300s).
-11. No tests written (only Laravel scaffolding).
+10. No queue workers; all third-party calls synchronous (timeouts up to 300s). `yt-dlp` import
+    runs inline and expects the binary at `/opt/almotion/bin/yt-dlp`.
+11. **Backend has no tests** — only Laravel scaffolding. Frontend has ~205 test files.
+    Pre-existing red on `main`: `check:boundaries` (11 cross-feature imports),
+    `timeline-store-facade.test.ts` (10), `scene-assembly.test.ts` (2), ~144 `tsc` errors.
+    `npm run build` uses esbuild and passes regardless — don't mistake these for your break.
 12. Frontend Vite proxy `/api/v1` → `/api` rewrite — but Laravel route `/api/transcribe/start` is not `/api/transcribe`. **Path mismatch may silently break json2video** unless the proxy is meant to point to remote j2v host.
 13. Locale: AI chat panel has Azerbaijani strings in interim messages.
 
@@ -204,6 +261,40 @@ Full architecture documented in [freecut/CLAUDE.md](freecut/CLAUDE.md). Key inva
 - **DB migrations**: already applied. To re-run: `php artisan migrate:fresh --seed` (will wipe).
 - **Seeded admin**: `murad.cafarzada212@gmail.com` / `admin123456` (weak — change before any deploy).
 - **Logs**: `/tmp/backend.log`, `/tmp/frontend.log`, `freecut-backend/storage/logs/laravel.log`.
+
+---
+
+## Next up (agreed with the user, not started)
+
+### 1. Media must live on the server, not on the user's disk
+
+Today media is bound to **File System Access handles** pointing at files on whichever machine
+imported them. Opening the project elsewhere shows "N Missing", and re-granting permission
+fails because `requestPermission` is called without a user gesture
+(`SecurityError: User activation is required`) — so the current relink path can never succeed
+on its own. Meanwhile the plans sell storage that goes unused.
+
+The backend half already exists: `MediaUploadController` (signed-URL PUT + finalize),
+`MediaImportController`, `media_upload_sessions`, `users.storage_used`, `plan.limit:storage`,
+and commit `8a2627d` ("cross-device media sync"). It is wired as a **background backup**, not
+the source of truth.
+
+Work: make import upload to the server first and treat OPFS as a cache; reorder
+`resolveMediaUrl` to cache → server URL and drop the handle path; enforce the storage limit at
+import with a clear message; remove the broken-media/relink flow; one-off migration for
+existing handle-bound projects. **Risk: user files — do not rush this.**
+Note: 500 MB (free plan) is ~5 minutes of 1080p; the plan tiers need rethinking alongside VPS disk.
+
+### 2. "Animation" section — Pan & Zoom / Ken Burns
+
+Build on the existing keyframe system (`src/features/keyframes/`), **not** as a shader — pan/zoom
+is a transform over time, so it needs no GPU and works on machines with no adapter. A preset
+button writes two keyframes (scale/position at clip start and end) that the user can then edit by
+hand, and export already understands keyframes.
+
+Presets: Zoom In, Zoom Out, Pan L→R / R→L / T→B / B→T, Ken Burns (zoom + pan), with intensity
+and easing controls (default ease-in-out). Place it as its own section in the properties sidebar
+(`features/editor/components/properties-sidebar/clip-panel/index.tsx`), next to Effects.
 
 ---
 
