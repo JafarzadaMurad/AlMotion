@@ -1,6 +1,5 @@
 import { useMemo, useCallback, useEffect, useState } from 'react';
-import { EffectsPipeline } from '@/infrastructure/gpu/effects';
-import { buildCssEffectFilter } from '../../utils/css-effect-fallback';
+import { EffectsPipeline, buildCssEffectFilter } from '@/infrastructure/gpu/effects';
 import { useVideoConfig } from '../../hooks/use-player-compat';
 import { interpolate, useSequenceContext } from '@/features/composition-runtime/deps/player';
 import { useGizmoStore, type ItemPropertiesPreview } from '@/features/composition-runtime/deps/stores';

@@ -10,6 +10,12 @@ export {
   EffectsPipeline,
 } from '@/lib/gpu-effects';
 
+export {
+  buildCssEffectFilter,
+  hasCssEquivalent,
+  getGpuOnlyEffectTypes,
+} from '@/lib/gpu-effects/css-fallback';
+
 export type {
   GpuEffectInstance,
   GpuEffectDefinition,

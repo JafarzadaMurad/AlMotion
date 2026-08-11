@@ -9,7 +9,7 @@ import { useTimelineStore } from '@/features/effects/deps/timeline-contract';
 import { useGizmoStore } from '@/features/effects/deps/preview-contract';
 import { PropertySection } from '@/shared/ui/property-controls';
 import { GpuEffectPanel, GpuWheelsPanel, GpuCurvesPanel } from './panels';
-import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams, EffectsPipeline } from '@/infrastructure/gpu/effects';
+import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams, EffectsPipeline, getGpuOnlyEffectTypes } from '@/infrastructure/gpu/effects';
 import { useEffectPreviews } from '../hooks/use-effect-previews';
 
 interface EffectsSectionProps {
@@ -54,6 +54,15 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
   // Get effects from first selected item (for display)
   // Multi-select shows first item's effects
   const effects: ItemEffect[] = visualItems[0]?.effects ?? [];
+
+  // Name the effects on this clip that cannot render without a GPU, so the
+  // warning points at the actual culprit instead of leaving the user to guess
+  // which of their effects is the inert one.
+  const inactiveEffectNames = useMemo(() => {
+    if (!gpuUnavailable) return [];
+    return getGpuOnlyEffectTypes(effects)
+      .map((type) => getGpuEffect(type)?.name ?? type);
+  }, [gpuUnavailable, effects]);
 
   // Add a GPU shader effect
   const handleAddGpuEffect = useCallback(
@@ -334,8 +343,15 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span className="leading-relaxed">
             WebGPU is unavailable in this browser. Colour and blur effects still
-            render through CSS, but every other effect is inactive. Open{' '}
-            <span className="font-mono">chrome://gpu</span> and enable hardware
+            render through CSS
+            {inactiveEffectNames.length > 0 && (
+              <>
+                , but{' '}
+                <span className="font-semibold">{inactiveEffectNames.join(', ')}</span>
+                {inactiveEffectNames.length === 1 ? ' is' : ' are'} inactive on this clip
+              </>
+            )}
+            . Open <span className="font-mono">chrome://gpu</span> and enable hardware
             acceleration, then restart the browser to get the full set.
           </span>
         </div>

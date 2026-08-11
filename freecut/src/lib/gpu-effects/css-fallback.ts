@@ -23,6 +23,7 @@ const CSS_EQUIVALENT_EFFECTS = new Set([
   'gpu-sepia',
   'gpu-invert',
   'gpu-hue-shift',
+  'gpu-exposure',
   'gpu-gaussian-blur',
   'gpu-box-blur',
 ]);
@@ -65,6 +66,14 @@ function toCssFilterFunction(gpuEffectType: string, params: Record<string, unkno
       return 'invert(1)';
     case 'gpu-hue-shift':
       return `hue-rotate(${(num(params, 'shift', 0) * 360).toFixed(2)}deg)`;
+    case 'gpu-exposure': {
+      // The shader is `rgb * 2^EV`, then an additive offset, then a gamma
+      // curve. Only the first term has a CSS equivalent, so hand the effect
+      // back to the GPU path whenever offset or gamma leave their neutral
+      // values — a partial render would be worse than none.
+      if (num(params, 'offset', 0) !== 0 || num(params, 'gamma', 1) !== 1) return null;
+      return `brightness(${Math.pow(2, num(params, 'exposure', 0)).toFixed(4)})`;
+    }
     case 'gpu-gaussian-blur':
     case 'gpu-box-blur':
       return `blur(${num(params, 'radius', 5).toFixed(2)}px)`;

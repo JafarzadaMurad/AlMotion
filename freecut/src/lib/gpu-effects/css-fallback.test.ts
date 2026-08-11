@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ItemEffect } from '@/types/effects';
-import { buildCssEffectFilter, getGpuOnlyEffectTypes, hasCssEquivalent } from './css-effect-fallback';
+import { buildCssEffectFilter, getGpuOnlyEffectTypes, hasCssEquivalent } from './css-fallback';
 
 function gpuEffect(gpuEffectType: string, params: Record<string, unknown> = {}, enabled = true): ItemEffect {
   return {
@@ -34,6 +34,22 @@ describe('buildCssEffectFilter', () => {
       .toBe('contrast(1.4000)');
     expect(buildCssEffectFilter([gpuEffect('gpu-saturation', { amount: 0 })]))
       .toBe('saturate(0.0000)');
+  });
+
+  it('converts neutral-curve exposure into a brightness multiplier', () => {
+    // Shader is rgb * 2^EV, so +1 EV doubles and -1 EV halves.
+    expect(buildCssEffectFilter([gpuEffect('gpu-exposure', { exposure: 1, offset: 0, gamma: 1 })]))
+      .toBe('brightness(2.0000)');
+    expect(buildCssEffectFilter([gpuEffect('gpu-exposure', { exposure: -1, offset: 0, gamma: 1 })]))
+      .toBe('brightness(0.5000)');
+  });
+
+  it('leaves exposure to the GPU when offset or gamma are not neutral', () => {
+    // Those terms have no CSS analogue, so a partial render would be wrong.
+    expect(buildCssEffectFilter([gpuEffect('gpu-exposure', { exposure: 1, offset: 0.2, gamma: 1 })]))
+      .toBe('');
+    expect(buildCssEffectFilter([gpuEffect('gpu-exposure', { exposure: 1, offset: 0, gamma: 2.2 })]))
+      .toBe('');
   });
 
   it('treats invert as parameterless, matching the shader', () => {
