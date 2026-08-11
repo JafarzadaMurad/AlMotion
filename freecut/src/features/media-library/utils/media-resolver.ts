@@ -3,6 +3,7 @@ import { useMediaLibraryStore } from '@/features/media-library/stores/media-libr
 import { proxyService } from '@/features/media-library/services/proxy-service';
 import { getSharedProxyKey } from '@/features/media-library/utils/proxy-key';
 import { blobUrlManager } from '@/infrastructure/browser/blob-url-manager';
+import { recoverMediaFromServer } from '@/features/media-library/services/media-sync-service';
 import { registerKeyframeIndex } from '@/shared/utils/keyframe-index-registry';
 import type { TimelineTrack } from '@/types/timeline';
 import { createLogger } from '@/shared/logging/logger';
@@ -64,9 +65,23 @@ export async function resolveMediaUrl(mediaId: string): Promise<string> {
     } catch (error) {
       logger.error(`Failed to resolve media ${mediaId}:`, error);
 
-      // Mark media as broken if it's a file access error
+      // A local file we cannot read is not necessarily lost — the server may
+      // still hold the bytes. Handle-backed media goes dead whenever the
+      // browser drops its permission (re-granting needs a user gesture the
+      // resolver cannot produce), so try the server before telling the user
+      // their media is missing.
       if (error instanceof FileAccessError) {
         const media = await mediaLibraryService.getMedia(mediaId);
+        const projectId = useMediaLibraryStore.getState().currentProjectId;
+
+        if (projectId) {
+          const recovered = await recoverMediaFromServer(mediaId, projectId);
+          if (recovered) {
+            useMediaLibraryStore.getState().markMediaHealthy(mediaId);
+            return blobUrlManager.acquire(mediaId, recovered);
+          }
+        }
+
         useMediaLibraryStore.getState().markMediaBroken(mediaId, {
           mediaId,
           fileName: media?.fileName ?? 'Unknown file',

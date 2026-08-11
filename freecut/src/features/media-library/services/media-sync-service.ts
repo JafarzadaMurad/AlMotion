@@ -205,3 +205,72 @@ export async function hydrateProjectMediaFromServer(
   logger.info(`Hydrated project ${projectId}: +${added} new / ${skipped} kept / ${failed} failed`);
   return { added, skipped, failed };
 }
+
+/**
+ * Re-download a single media file from the server and re-point its local
+ * row at an OPFS copy.
+ *
+ * This exists because `hydrateProjectMediaFromServer` deliberately skips any
+ * media that already has a local IndexedDB row — but "has a row" is not the
+ * same as "is readable". A handle-backed row whose permission has lapsed
+ * (`requestPermission` needs a user gesture the resolver cannot provide) is
+ * present but dead, so hydration walks past it and resolution then fails.
+ *
+ * Recovery converts such a row to `storageType: 'opfs'`, which has no
+ * permission model and survives every future session. Returns the downloaded
+ * blob so the caller can use it immediately, or null when the server has
+ * nothing for this media.
+ */
+export async function recoverMediaFromServer(
+  mediaId: string,
+  projectId: string,
+): Promise<Blob | null> {
+  let serverMedia: ServerMediaFile[];
+  try {
+    serverMedia = await fetchProjectMedia(projectId);
+  } catch (err) {
+    logger.warn(`Cannot reach server to recover media ${mediaId}`, err);
+    return null;
+  }
+
+  const local = await getMediaDB(mediaId).catch(() => undefined);
+  // Match on the client UUID first; fall back to the numeric server id both
+  // as a stringified client id (server-only imports) and via the local row's
+  // recorded serverMediaId.
+  const row = serverMedia.find((candidate) => (
+    candidate.client_media_id === mediaId
+    || `server-${candidate.id}` === mediaId
+    || (local?.serverMediaId != null && candidate.id === local.serverMediaId)
+  ));
+
+  if (!row?.url) {
+    logger.warn(`Server has no downloadable copy of media ${mediaId}`);
+    return null;
+  }
+
+  try {
+    const response = await fetch(row.url, { credentials: 'omit' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+
+    const opfsPath = opfsPathForMedia(mediaId);
+    await opfsService.saveFile(opfsPath, buffer);
+
+    // Drop the dead handle in the same write that installs the OPFS path, so
+    // no later read can pick the stale source back up.
+    await updateMediaDB(mediaId, {
+      storageType: 'opfs',
+      opfsPath,
+      fileHandle: undefined,
+      serverMediaId: row.id,
+      syncStatus: 'synced',
+      updatedAt: Date.now(),
+    });
+
+    logger.info(`Recovered media ${mediaId} from server media #${row.id}`);
+    return new Blob([buffer], { type: row.mime_type || 'application/octet-stream' });
+  } catch (err) {
+    logger.warn(`Recovery download failed for media ${mediaId}`, err);
+    return null;
+  }
+}
