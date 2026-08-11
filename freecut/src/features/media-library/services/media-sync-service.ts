@@ -26,7 +26,10 @@ import {
   getMedia as getMediaDB,
   updateMedia as updateMediaDB,
   associateMediaWithProject,
+  saveThumbnail as saveThumbnailDB,
+  getThumbnailByMediaId,
 } from '@/infrastructure/storage/indexeddb';
+import { generateThumbnail } from '../utils/thumbnail-generator';
 import {
   fetchProjectMedia,
   uploadProjectMedia,
@@ -193,6 +196,12 @@ export async function hydrateProjectMediaFromServer(
       };
       await createMediaDB(meta);
       await associateMediaWithProject(projectId, clientId);
+      await ensureThumbnailForMedia(
+        clientId,
+        new Blob([buf], { type: row.mime_type || 'application/octet-stream' }),
+        row.name,
+        row.mime_type,
+      );
       added++;
       downloaded++;
       onProgress?.(downloaded, serverMedia.length);
@@ -267,10 +276,52 @@ export async function recoverMediaFromServer(
       updatedAt: Date.now(),
     });
 
+    const blob = new Blob([buffer], { type: row.mime_type || 'application/octet-stream' });
+    await ensureThumbnailForMedia(mediaId, blob, row.name, row.mime_type);
+
     logger.info(`Recovered media ${mediaId} from server media #${row.id}`);
-    return new Blob([buffer], { type: row.mime_type || 'application/octet-stream' });
+    return blob;
   } catch (err) {
     logger.warn(`Recovery download failed for media ${mediaId}`, err);
     return null;
+  }
+}
+
+/**
+ * Build and store a thumbnail for media that arrived from the server.
+ *
+ * Thumbnails live in their own IndexedDB store and are never uploaded, so a
+ * device that hydrates a project has the bytes but no preview image and the
+ * media library falls back to a generic file icon. Regenerating locally from
+ * the downloaded blob costs one decode and keeps the library looking the same
+ * on every device.
+ *
+ * Best-effort by design: a missing thumbnail is cosmetic, so failures are
+ * logged and swallowed rather than failing the hydration that produced it.
+ */
+async function ensureThumbnailForMedia(
+  mediaId: string,
+  blob: Blob,
+  fileName: string,
+  mimeType: string,
+): Promise<void> {
+  try {
+    const existing = await getThumbnailByMediaId(mediaId).catch(() => undefined);
+    if (existing) return;
+
+    const file = new File([blob], fileName, { type: mimeType || blob.type });
+    const thumbnailBlob = await generateThumbnail(file, { maxSize: 320, quality: 0.6 });
+
+    await saveThumbnailDB({
+      id: crypto.randomUUID(),
+      mediaId,
+      blob: thumbnailBlob,
+      timestamp: 1,
+      width: 320,
+      height: 180,
+    });
+    await updateMediaDB(mediaId, { updatedAt: Date.now() });
+  } catch (err) {
+    logger.warn(`Could not build a thumbnail for media ${mediaId}`, err);
   }
 }
