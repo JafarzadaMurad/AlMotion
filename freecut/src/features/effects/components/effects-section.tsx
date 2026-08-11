@@ -333,9 +333,10 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
         <div className="mx-2 mb-2 px-2 py-2 flex items-start gap-2 text-xs rounded border border-amber-500/30 bg-amber-500/10 text-amber-200">
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span className="leading-relaxed">
-            WebGPU is unavailable in this browser, so effects will not render.
-            Open <span className="font-mono">chrome://gpu</span> and enable
-            hardware acceleration, then restart the browser.
+            WebGPU is unavailable in this browser. Colour and blur effects still
+            render through CSS, but every other effect is inactive. Open{' '}
+            <span className="font-mono">chrome://gpu</span> and enable hardware
+            acceleration, then restart the browser to get the full set.
           </span>
         </div>
       )}

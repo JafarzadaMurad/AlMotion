@@ -1,4 +1,6 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
+import { EffectsPipeline } from '@/infrastructure/gpu/effects';
+import { buildCssEffectFilter } from '../../utils/css-effect-fallback';
 import { useVideoConfig } from '../../hooks/use-player-compat';
 import { interpolate, useSequenceContext } from '@/features/composition-runtime/deps/player';
 import { useGizmoStore, type ItemPropertiesPreview } from '@/features/composition-runtime/deps/stores';
@@ -72,6 +74,26 @@ interface ItemVisualState {
  * Uses granular selectors for each piece of state to avoid creating
  * new object references that would cause infinite loops.
  */
+/**
+ * Whether WebGPU failed to give us a device. The probe is shared and its
+ * result — including failure — is cached in EffectsPipeline, so calling this
+ * from every item costs one adapter request per page load.
+ */
+function useGpuUnavailable(): boolean {
+  const [unavailable, setUnavailable] = useState(EffectsPipeline.isDeviceUnavailable());
+
+  useEffect(() => {
+    if (unavailable) return;
+    let cancelled = false;
+    void EffectsPipeline.requestCachedDevice().then((device) => {
+      if (!cancelled && !device) setUnavailable(true);
+    });
+    return () => { cancelled = true; };
+  }, [unavailable]);
+
+  return unavailable;
+}
+
 export function useItemVisualState(
   item: TimelineItem & { _sequenceFrameOffset?: number },
   masks: MaskInfo[] = []
@@ -252,15 +274,23 @@ export function useItemVisualState(
   ]);
 
   // === EFFECTS COMPUTATION ===
-  // Legacy CSS effects removed — all effects now render via GPU pipeline in client-render-engine
+  // Effects normally render through the GPU pipeline in client-render-engine.
+  // When the browser has no usable WebGPU adapter that pipeline never starts
+  // and every effect is silently skipped, so the clip looks untouched. Fall
+  // back to native CSS filters for the subset that has an exact equivalent —
+  // colour adjustments and blur — which need no GPU at all.
+  //
+  // Only engages when the GPU path is known to be dead, so machines with a
+  // working adapter keep the full shader output and never double-apply.
+  const gpuUnavailable = useGpuUnavailable();
   const { cssFilter, scanlinesEffect, halftoneStyles, vignetteStyle } = useMemo(() => {
     return {
-      cssFilter: '',
+      cssFilter: gpuUnavailable ? buildCssEffectFilter(item.effects) : '',
       scanlinesEffect: null,
       halftoneStyles: null,
       vignetteStyle: null,
     };
-  }, []);
+  }, [gpuUnavailable, item.effects]);
 
   // === MASK COMPUTATION ===
   const maskState = useMemo(() => {
