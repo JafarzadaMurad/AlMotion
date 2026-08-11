@@ -950,18 +950,29 @@ export const TimelineContent = memo(function TimelineContent({
       velocityZoomRef.current = 0;
       const smoothingFactor = 1 - SCROLL_SMOOTHING;
 
-      // Shift + scroll = vertical scroll ONLY
+      // Shift + scroll = horizontal scroll ONLY.
+      // Browsers translate shift+wheel into deltaX on most platforms, so read
+      // deltaX first and fall back to deltaY for the ones that don't.
       if (event.shiftKey) {
-        verticalScrollTargetRef.current = getVerticalScrollTarget(event.target);
-        velocityXRef.current = 0;
-        const delta = (event.deltaX || event.deltaY) * SCROLL_SENSITIVITY;
-        velocityYRef.current = velocityYRef.current * smoothingFactor + delta * SCROLL_SMOOTHING;
-      } else {
         verticalScrollTargetRef.current = null;
-        // Default scroll = horizontal scroll ONLY
         velocityYRef.current = 0;
-        const delta = (event.deltaY || event.deltaX) * SCROLL_SENSITIVITY;
+        const delta = (event.deltaX || event.deltaY) * SCROLL_SENSITIVITY;
         velocityXRef.current = velocityXRef.current * smoothingFactor + delta * SCROLL_SMOOTHING;
+      } else {
+        // Default scroll = vertical scroll in the track section under the cursor.
+        // When the cursor isn't over a scrollable section (ruler, empty area below
+        // the tracks) there is nothing to scroll vertically, so fall back to
+        // horizontal so the wheel never feels dead.
+        const verticalTarget = getVerticalScrollTarget(event.target);
+        verticalScrollTargetRef.current = verticalTarget;
+        const delta = (event.deltaY || event.deltaX) * SCROLL_SENSITIVITY;
+        if (verticalTarget) {
+          velocityXRef.current = 0;
+          velocityYRef.current = velocityYRef.current * smoothingFactor + delta * SCROLL_SMOOTHING;
+        } else {
+          velocityYRef.current = 0;
+          velocityXRef.current = velocityXRef.current * smoothingFactor + delta * SCROLL_SMOOTHING;
+        }
       }
 
       startMomentumScroll();
