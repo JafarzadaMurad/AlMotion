@@ -114,15 +114,39 @@ export class EffectsPipeline {
   // EffectsPipeline instances skip the device request entirely.
   private static _cachedDevice: GPUDevice | null = null;
   private static _devicePromise: Promise<GPUDevice | null> | null = null;
+  /**
+   * Sticky "this browser cannot give us a device" flag. Without it every
+   * rendered frame that carries a GPU effect re-runs requestAdapter(), which
+   * on a machine with no usable GPU means hundreds of adapter requests and
+   * hundreds of console warnings per session. The answer never changes within
+   * a page lifetime, so cache the failure and let a reload re-test it.
+   */
+  private static _deviceUnavailable = false;
+
+  /** True once we have concluded that WebGPU cannot serve this page. */
+  static isDeviceUnavailable(): boolean {
+    return EffectsPipeline._deviceUnavailable;
+  }
 
   static async requestCachedDevice(): Promise<GPUDevice | null> {
     if (EffectsPipeline._cachedDevice) return EffectsPipeline._cachedDevice;
+    if (EffectsPipeline._deviceUnavailable) return null;
     if (EffectsPipeline._devicePromise) return EffectsPipeline._devicePromise;
     EffectsPipeline._devicePromise = (async () => {
-      if (typeof navigator === 'undefined' || !navigator.gpu) return null;
+      if (typeof navigator === 'undefined' || !navigator.gpu) {
+        EffectsPipeline._deviceUnavailable = true;
+        return null;
+      }
       try {
-        const adapter = await navigator.gpu.requestAdapter();
-        if (!adapter) return null;
+        // Machines with no GPU driver (or a blocklisted one) return null for
+        // the default adapter. Chrome can still hand back a software adapter,
+        // so ask for it explicitly before giving up — slow beats absent.
+        const adapter = await navigator.gpu.requestAdapter()
+          ?? await navigator.gpu.requestAdapter({ forceFallbackAdapter: true });
+        if (!adapter) {
+          EffectsPipeline._deviceUnavailable = true;
+          return null;
+        }
         const device = await adapter.requestDevice();
         EffectsPipeline._cachedDevice = device;
         device.lost.then(() => {
@@ -132,6 +156,7 @@ export class EffectsPipeline {
         });
         return device;
       } catch {
+        EffectsPipeline._deviceUnavailable = true;
         return null;
       } finally {
         EffectsPipeline._devicePromise = null;

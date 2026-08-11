@@ -1,6 +1,6 @@
 import { useCallback, useMemo, memo, useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Plus, Eye, EyeOff, Search } from 'lucide-react';
+import { Sparkles, Plus, Eye, EyeOff, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { TimelineItem } from '@/types/timeline';
 import type { ItemEffect, GpuEffect } from '@/types/effects';
@@ -9,7 +9,7 @@ import { useTimelineStore } from '@/features/effects/deps/timeline-contract';
 import { useGizmoStore } from '@/features/effects/deps/preview-contract';
 import { PropertySection } from '@/shared/ui/property-controls';
 import { GpuEffectPanel, GpuWheelsPanel, GpuCurvesPanel } from './panels';
-import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams } from '@/infrastructure/gpu/effects';
+import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams, EffectsPipeline } from '@/infrastructure/gpu/effects';
 import { useEffectPreviews } from '../hooks/use-effect-previews';
 
 interface EffectsSectionProps {
@@ -35,6 +35,18 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
 
   // Items are already filtered by parent - use directly
   const visualItems = items;
+
+  // Probe the GPU device once so the panel can tell the user when effects
+  // cannot possibly render. The device request is cached (including failures),
+  // so this costs nothing after the first call.
+  const [gpuUnavailable, setGpuUnavailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void EffectsPipeline.requestCachedDevice().then((device) => {
+      if (!cancelled) setGpuUnavailable(!device);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Memoize item IDs for stable callback dependencies
   const itemIds = useMemo(() => visualItems.map((item) => item.id), [visualItems]);
@@ -314,6 +326,20 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
 
   return (
     <PropertySection title="Effects" icon={Sparkles} defaultOpen={true}>
+      {/* Every effect in this panel is a WebGPU shader. Without a device they
+          are added to the clip and then silently skipped at render time, which
+          reads as "the app is broken" — so say what is actually wrong. */}
+      {gpuUnavailable && (
+        <div className="mx-2 mb-2 px-2 py-2 flex items-start gap-2 text-xs rounded border border-amber-500/30 bg-amber-500/10 text-amber-200">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span className="leading-relaxed">
+            WebGPU is unavailable in this browser, so effects will not render.
+            Open <span className="font-mono">chrome://gpu</span> and enable
+            hardware acceleration, then restart the browser.
+          </span>
+        </div>
+      )}
+
       {/* Add Effect Picker + Toggle All */}
       <div className="px-2 pb-2 flex gap-1">
         <Button

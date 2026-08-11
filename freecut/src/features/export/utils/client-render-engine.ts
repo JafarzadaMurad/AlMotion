@@ -207,6 +207,10 @@ export async function createCompositionRenderer(
   // Lazily initialized on first use to avoid blocking startup
   let gpuPipeline: EffectsPipeline | null = null;
   let gpuPipelineInitPromise: Promise<EffectsPipeline | null> | null = null;
+  // The "no pipeline" warning is emitted from a per-frame render path, so
+  // without this it repeats for every frame of every effected clip — hundreds
+  // of identical lines that bury the errors worth reading.
+  let gpuPipelineFailureLogged = false;
   const ensureGpuPipeline = async (): Promise<EffectsPipeline | null> => {
     if (gpuPipeline) return gpuPipeline;
     if (gpuPipelineInitPromise) return gpuPipelineInitPromise;
@@ -1228,8 +1232,13 @@ export async function createCompositionRenderer(
           const hasGpu = combinedEffects.some((e) => e.enabled && e.effect.type === 'gpu-effect');
           if (hasGpu && !itemRenderContext.gpuPipeline) {
             itemRenderContext.gpuPipeline = await ensureGpuPipeline();
-            if (!itemRenderContext.gpuPipeline) {
-              getLog().warn('GPU pipeline init failed — GPU effects will be skipped');
+            if (!itemRenderContext.gpuPipeline && !gpuPipelineFailureLogged) {
+              gpuPipelineFailureLogged = true;
+              getLog().warn(
+                'GPU pipeline init failed — GPU effects will be skipped. '
+                + 'WebGPU is unavailable in this browser (no adapter). '
+                + 'Check chrome://gpu and enable hardware acceleration.',
+              );
             }
           }
           const { canvas: effectCanvas, ctx: effectCtx } = canvasPool.acquire();
