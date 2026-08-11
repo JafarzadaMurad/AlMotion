@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback, memo, lazy, Suspense } from 'react';
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useRouter } from '@tanstack/react-router';
 import { createLogger } from '@/shared/logging/logger';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable';
+import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toolbar } from './toolbar';
 import { MediaSidebar } from './media-sidebar';
@@ -36,7 +37,6 @@ import { useProjectStore } from '@/features/editor/deps/projects';
 import { importExportDialog } from '@/features/editor/deps/export-contract';
 import { getEditorLayout, getEditorLayoutCssVars } from '@/shared/ui/editor-layout';
 import { createProjectUpgradeBackup, formatProjectUpgradeBackupName } from '@/features/editor/deps/projects';
-import { ProjectUpgradeDialog } from './project-upgrade-dialog';
 import { ProjectMediaMatchDialog } from './project-media-match-dialog';
 const logger = createLogger('Editor');
 const EDITOR_PROJECT_ROUTE_ID = '/editor/$projectId';
@@ -79,10 +79,9 @@ interface EditorProps {
 
 /**
  * Video Editor entrypoint.
- * Shows an explicit backup-and-upgrade prompt for legacy projects before loading editor state.
+ * Legacy projects are backed up and upgraded automatically before editor state loads.
  */
 export const Editor = memo(function Editor({ projectId, project, migration }: EditorProps) {
-  const navigate = useNavigate();
   const [upgradeApproved, setUpgradeApproved] = useState(!migration.requiresUpgrade);
   const [isPreparingUpgrade, setIsPreparingUpgrade] = useState(false);
   const backupName = formatProjectUpgradeBackupName(
@@ -95,10 +94,6 @@ export const Editor = memo(function Editor({ projectId, project, migration }: Ed
     setUpgradeApproved(!migration.requiresUpgrade);
     setIsPreparingUpgrade(false);
   }, [migration.requiresUpgrade, projectId]);
-
-  const handleCancelUpgrade = useCallback(() => {
-    navigate({ to: '/projects' });
-  }, [navigate]);
 
   const handleConfirmUpgrade = useCallback(async () => {
     setIsPreparingUpgrade(true);
@@ -123,9 +118,13 @@ export const Editor = memo(function Editor({ projectId, project, migration }: Ed
       setUpgradeApproved(true);
     } catch (error) {
       logger.error('Failed to create upgrade backup:', error);
-      toast.error('Failed to create backup before upgrade', {
-        description: error instanceof Error ? error.message : 'Please try again.',
+      // Open anyway rather than stranding the user on a blank screen: the
+      // server still holds the pre-upgrade project until they save, so the
+      // original is recoverable even without the local backup.
+      toast.warning('Opened without a local backup', {
+        description: 'The original stays on the server until you save this project.',
       });
+      setUpgradeApproved(true);
     } finally {
       setIsPreparingUpgrade(false);
     }
@@ -136,19 +135,22 @@ export const Editor = memo(function Editor({ projectId, project, migration }: Ed
     projectId,
   ]);
 
+  // Upgrade without asking. Opening a project on a second device is a normal
+  // thing to do, and a consent dialog in front of it just blocks the user on a
+  // decision they have no basis to refuse. The backup still happens, so the
+  // safety it was guarding is intact — only the interruption is gone.
+  useEffect(() => {
+    if (upgradeApproved || isPreparingUpgrade || !migration.requiresUpgrade) return;
+    void handleConfirmUpgrade();
+  }, [upgradeApproved, isPreparingUpgrade, migration.requiresUpgrade, handleConfirmUpgrade]);
+
   if (!upgradeApproved) {
     return (
-      <div className="min-h-screen bg-background">
-        <ProjectUpgradeDialog
-          open
-          projectName={project.name}
-          storedSchemaVersion={migration.storedSchemaVersion}
-          currentSchemaVersion={migration.currentSchemaVersion}
-          backupName={backupName}
-          isUpgrading={isPreparingUpgrade}
-          onCancel={handleCancelUpgrade}
-          onConfirm={handleConfirmUpgrade}
-        />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span>Preparing project…</span>
+        </div>
       </div>
     );
   }

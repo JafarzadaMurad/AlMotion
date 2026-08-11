@@ -36,6 +36,7 @@ import {
   type ServerMediaFile,
 } from '@/infrastructure/api/project-api';
 import { opfsService } from './opfs-service';
+import { setMediaHydrationProgress } from '../stores/media-hydration-state';
 import { createLogger } from '@/shared/logging/logger';
 import type { MediaMetadata } from '@/types/storage';
 
@@ -257,6 +258,10 @@ export async function recoverMediaFromServer(
     return null;
   }
 
+  // Recovery is a download the user did not ask for and cannot see, and it
+  // can be a large one. Drive the same overlay project-open hydration uses so
+  // the editor does not just sit there looking frozen.
+  setMediaHydrationProgress({ active: true, downloaded: 0, total: 1 });
   try {
     const response = await fetch(row.url, { credentials: 'omit' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -284,6 +289,8 @@ export async function recoverMediaFromServer(
   } catch (err) {
     logger.warn(`Recovery download failed for media ${mediaId}`, err);
     return null;
+  } finally {
+    setMediaHydrationProgress({ active: false, downloaded: 0, total: 0 });
   }
 }
 
