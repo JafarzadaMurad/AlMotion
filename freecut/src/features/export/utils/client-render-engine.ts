@@ -39,7 +39,7 @@ import {
   combineEffects,
   type AdjustmentLayerWithTrackOrder,
 } from './canvas-effects';
-import { EffectsPipeline } from '@/infrastructure/gpu/effects';
+import { EffectsPipeline, buildCssEffectFilter } from '@/infrastructure/gpu/effects';
 import { TransitionPipeline } from '@/infrastructure/gpu/transitions';
 import { CompositorPipeline, DEFAULT_LAYER_PARAMS, GpuTexturePool } from '@/infrastructure/gpu/compositor';
 import type { CompositeLayer } from '@/infrastructure/gpu/compositor';
@@ -1245,7 +1245,30 @@ export async function createCompositionRenderer(
           const deferredGpuCanvas = await applyAllEffectsAsync(effectCtx, itemCanvas, combinedEffects, frame, canvasSettings, itemRenderContext.gpuPipeline);
           canvasPool.release(itemCanvas);
 
-          const source = deferredGpuCanvas ?? effectCanvas;
+          let source = deferredGpuCanvas ?? effectCanvas;
+
+          // Without a GPU device applyAllEffectsAsync copies the item through
+          // untouched. Canvas2D understands the same filter syntax as CSS, so
+          // re-apply the effects that have a CSS equivalent here — otherwise
+          // the canvas path (scrubbing, playback) would show an unaffected clip
+          // while the DOM path shows the filtered one.
+          if (!itemRenderContext.gpuPipeline) {
+            const cssFilter = buildCssEffectFilter(combinedEffects);
+            if (cssFilter) {
+              const { canvas: filteredCanvas, ctx: filteredCtx } = canvasPool.acquire();
+              filteredCtx.filter = cssFilter;
+              filteredCtx.drawImage(source, 0, 0);
+              filteredCtx.filter = 'none';
+              if (source === effectCanvas) canvasPool.release(effectCanvas);
+              source = filteredCanvas;
+              if (deferred) {
+                return { source, poolCanvases: [filteredCanvas] };
+              }
+              targetCtx.drawImage(source, 0, 0);
+              canvasPool.release(filteredCanvas);
+              return null;
+            }
+          }
           if (deferred) {
             return { source, poolCanvases: [effectCanvas] };
           }
