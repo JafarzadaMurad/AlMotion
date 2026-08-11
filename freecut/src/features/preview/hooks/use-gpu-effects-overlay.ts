@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { EffectsPipeline } from '@/infrastructure/gpu/effects';
 import { useItemsStore, useTransitionsStore } from '@/features/preview/deps/timeline-store';
 import { usePlaybackStore } from '@/shared/state/playback';
 import { useGizmoStore } from '@/features/preview/stores/gizmo-store';
@@ -18,9 +19,17 @@ export function shouldForceContinuousPreviewOverlay(
   transitionCount: number,
   frame: number,
   previewEffectsByItemId?: ReadonlyMap<string, ItemEffect[]>,
+  gpuAvailable: boolean = true,
 ): boolean {
   void transitionCount;
   if (!Number.isFinite(frame)) {
+    return false;
+  }
+
+  // The overlay exists to run the GPU pipeline. Without a device it renders the
+  // clip untouched and, being painted on top, hides the DOM composition — which
+  // is where the CSS effect fallback lives. Staying off lets that fallback show.
+  if (!gpuAvailable) {
     return false;
   }
 
@@ -41,6 +50,17 @@ export function shouldForceContinuousPreviewOverlay(
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function useGpuEffectsOverlay(..._args: unknown[]) {
   const [needsOverlay, setNeedsOverlay] = useState(false);
+  // Re-runs the check once the device probe settles, so a machine with no
+  // adapter drops the overlay instead of leaving it stuck on.
+  const [gpuAvailable, setGpuAvailable] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void EffectsPipeline.requestCachedDevice().then((device) => {
+      if (!cancelled) setGpuAvailable(!!device);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const check = () => {
@@ -63,6 +83,7 @@ export function useGpuEffectsOverlay(..._args: unknown[]) {
           transitions.length,
           frame,
           previewEffectsByItemId,
+          gpuAvailable,
         );
         return prev === next ? prev : next;
       });
@@ -83,7 +104,7 @@ export function useGpuEffectsOverlay(..._args: unknown[]) {
       check();
     });
     return () => { unsubItems(); unsubTransitions(); unsubGizmo(); unsubPlayback(); };
-  }, []);
+  }, [gpuAvailable]);
 
   return needsOverlay;
 }

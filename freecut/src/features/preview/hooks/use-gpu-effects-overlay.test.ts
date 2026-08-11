@@ -100,3 +100,28 @@ describe('shouldForceContinuousPreviewOverlay', () => {
     ).toBe(true);
   });
 });
+
+describe('shouldForceContinuousPreviewOverlay without a GPU device', () => {
+  const effectedItem = {
+    id: 'item-1',
+    from: 0,
+    durationInFrames: 100,
+    effects: [{ id: 'e1', enabled: true, effect: { type: 'gpu-effect', gpuEffectType: 'gpu-sepia', params: {} } }],
+  } as unknown as TimelineItem;
+
+  it('keeps the overlay on when a device is available', () => {
+    expect(shouldForceContinuousPreviewOverlay([effectedItem], 0, 10, undefined, true)).toBe(true);
+  });
+
+  it('drops the overlay when no device is available', () => {
+    // The overlay cannot render effects without a GPU, and it paints over the
+    // DOM composition where the CSS fallback lives — so it must stay off.
+    expect(shouldForceContinuousPreviewOverlay([effectedItem], 0, 10, undefined, false)).toBe(false);
+  });
+
+  it('drops the overlay for non-normal blend modes too when there is no device', () => {
+    const blended = { id: 'b', from: 0, durationInFrames: 100, blendMode: 'screen' } as unknown as TimelineItem;
+    expect(shouldForceContinuousPreviewOverlay([blended], 0, 10, undefined, true)).toBe(true);
+    expect(shouldForceContinuousPreviewOverlay([blended], 0, 10, undefined, false)).toBe(false);
+  });
+});
