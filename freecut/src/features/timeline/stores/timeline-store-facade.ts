@@ -45,7 +45,7 @@ import * as timelineActions from './timeline-actions';
 
 // External dependencies for save/load
 import { saveThumbnail } from '@/infrastructure/storage/indexeddb';
-import { fetchProject, updateProjectApi } from '@/infrastructure/api/project-api';
+import { fetchProject, updateProjectApi, uploadProjectThumbnail } from '@/infrastructure/api/project-api';
 import { getProjectLocalData, saveProjectLocalData } from '@/infrastructure/storage/indexeddb/project-local-data';
 import { usePlaybackStore } from '@/shared/state/playback';
 import { useZoomStore } from './zoom-store';
@@ -714,6 +714,13 @@ async function saveTimeline(projectId: string): Promise<void> {
           timestamp: Date.now(),
           width: thumbWidth,
           height: thumbHeight,
+        });
+
+        // Mirror the cover to the server so the projects list shows it on
+        // other devices too. Fire-and-forget: this is decoration, and a save
+        // must not wait on it or fail because of it.
+        void uploadProjectThumbnail(projectId, thumbnailBlob).catch((err) => {
+          logger.warn('Could not upload project cover to the server:', err);
         });
       } catch (thumbError) {
         // Thumbnail generation failure shouldn't block save

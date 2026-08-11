@@ -16,6 +16,11 @@ export interface Project {
   schemaVersion?: number;
   thumbnailId?: string; // Reference to ThumbnailData in IndexedDB
   thumbnail?: string; // @deprecated Base64 data URL (for backward compatibility)
+  /**
+   * Server-hosted cover URL, sent by the backend. Used when this device has no
+   * local copy in IndexedDB — i.e. any device that did not create the project.
+   */
+  thumbnail_url?: string | null;
   metadata: ProjectResolution;
   timeline?: ProjectTimeline;
   /**

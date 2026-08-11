@@ -16,9 +16,12 @@ class Project extends Model
         'height',
         'fps',
         'background_color',
+        'thumbnail_path',
         'timeline_data',
         'settings',
     ];
+
+    protected $appends = ['thumbnail_url'];
 
     protected function casts(): array
     {
@@ -26,6 +29,24 @@ class Project extends Model
             'timeline_data' => 'array',
             'settings' => 'array',
         ];
+    }
+
+    /**
+     * Public URL for the project card preview, or null when none was uploaded.
+     *
+     * Composed against config('app.url') rather than url() for the same reason
+     * MediaFile does it: behind the Caddy reverse proxy the inner request is
+     * plain http, and a http:// asset URL on an https page is blocked as mixed
+     * content. APP_URL carries the scheme the browser actually needs.
+     */
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        if (!$this->thumbnail_path) {
+            return null;
+        }
+        $base = rtrim(config('app.url') ?: '', '/');
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', ltrim($this->thumbnail_path, '/'))));
+        return $base . '/storage/' . $encodedPath;
     }
 
     public function user(): BelongsTo

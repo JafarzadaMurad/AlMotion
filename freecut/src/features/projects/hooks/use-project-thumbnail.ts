@@ -37,6 +37,13 @@ export function useProjectThumbnail(project: Project): string | undefined {
       // Fall back to deprecated base64 thumbnail
       if (project.thumbnail && !cancelled) {
         setThumbnailUrl(project.thumbnail);
+        return;
+      }
+
+      // Nothing local: this device did not create the project, so use the
+      // copy the server holds rather than showing a placeholder icon.
+      if (project.thumbnail_url && !cancelled) {
+        setThumbnailUrl(project.thumbnail_url);
       }
     }
 
@@ -49,7 +56,7 @@ export function useProjectThumbnail(project: Project): string | undefined {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [project.thumbnailId, project.thumbnail, project.updatedAt]);
+  }, [project.thumbnailId, project.thumbnail, project.thumbnail_url, project.updatedAt]);
 
   return thumbnailUrl;
 }

@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Projects
     Route::apiResource('projects', ProjectController::class)->except(['store']);
     Route::post('/projects', [ProjectController::class, 'store'])->middleware('plan.limit:projects');
+    Route::post('/projects/{project}/thumbnail', [ProjectController::class, 'uploadThumbnail']);
 
     // Media files (scoped to project)
     Route::get('/projects/{project}/media', [MediaFileController::class, 'index']);

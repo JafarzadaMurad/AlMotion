@@ -204,3 +204,24 @@ export async function uploadProjectMedia(
   }
   return ApiClient.upload<ServerMediaFile>(`/projects/${projectId}/media`, form);
 }
+
+/**
+ * Store the project card preview server-side.
+ *
+ * The cover is rendered in the browser and kept in IndexedDB, so without this
+ * the projects list falls back to a placeholder icon on any device that did
+ * not create the project. The server keeps one image per project and replaces
+ * it on each upload, so calling this on every save is safe.
+ */
+export async function uploadProjectThumbnail(
+  projectId: string,
+  blob: Blob,
+): Promise<{ thumbnail_path: string; thumbnail_url: string | null }> {
+  const form = new FormData();
+  const extension = blob.type === 'image/png' ? 'png' : 'jpg';
+  form.append('thumbnail', new File([blob], `cover.${extension}`, { type: blob.type }), `cover.${extension}`);
+  return ApiClient.upload<{ thumbnail_path: string; thumbnail_url: string | null }>(
+    `/projects/${projectId}/thumbnail`,
+    form,
+  );
+}
