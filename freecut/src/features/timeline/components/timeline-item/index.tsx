@@ -276,6 +276,8 @@ export const TimelineItem = memo(function TimelineItem({ item, timelineDuration 
     [itemKeyframes]
   );
   const hasKeyframes = keyframedProperties.length > 0;
+  // Sparkles badge mirrors what the renderer actually applies: only enabled effects count.
+  const hasEffects = (item.effects ?? []).some((effect) => effect.enabled);
 
   // Use refs for actions to avoid selector re-renders - read from store in callbacks
   const activeTool = useSelectionStore((s) => s.activeTool);
@@ -3278,6 +3280,7 @@ export const TimelineItem = memo(function TimelineItem({ item, timelineDuration 
             {/* Status indicators */}
             <ClipIndicators
               hasKeyframes={hasKeyframes}
+              hasEffects={hasEffects}
               currentSpeed={currentSpeed}
               isStretching={isStretching}
               stretchFeedback={stretchFeedback}

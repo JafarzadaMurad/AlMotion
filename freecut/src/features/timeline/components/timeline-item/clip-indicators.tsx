@@ -1,11 +1,13 @@
 import { memo } from 'react';
-import { Link2Off, Diamond } from 'lucide-react';
+import { Link2Off, Diamond, Sparkles } from 'lucide-react';
 import { cn } from '@/shared/ui/cn';
 import { EDITOR_LAYOUT_CSS_VALUES } from '@/shared/ui/editor-layout';
 
 interface ClipIndicatorsProps {
   /** Whether the item has keyframe animations */
   hasKeyframes: boolean;
+  /** Whether the item has at least one enabled visual effect */
+  hasEffects: boolean;
   /** Current playback speed (1 = normal) */
   currentSpeed: number;
   /** Whether the item is currently being rate stretched */
@@ -25,12 +27,14 @@ interface ClipIndicatorsProps {
 /**
  * Renders status indicators/badges on timeline clips:
  * - Keyframe diamond icon (amber)
+ * - Effects sparkles icon (violet) when the clip has enabled visual effects
  * - Speed badge when not 1x (shows current or preview speed)
  * - Broken media indicator (red link-off icon)
  * - Mask badge for shape items
  */
 export const ClipIndicators = memo(function ClipIndicators({
   hasKeyframes,
+  hasEffects,
   currentSpeed,
   isStretching,
   stretchFeedback,
@@ -44,7 +48,7 @@ export const ClipIndicators = memo(function ClipIndicators({
   return (
     <>
       {/* Label-row badges â€” single container to prevent overlap */}
-      {(hasKeyframes || (isShape && isMask) || showSpeedBadge) && (
+      {(hasKeyframes || hasEffects || (isShape && isMask) || showSpeedBadge) && (
         <div
           className="absolute right-1 z-10 pointer-events-none flex items-center gap-1"
           style={{ top: 0, height: EDITOR_LAYOUT_CSS_VALUES.timelineClipLabelRowHeight }}
@@ -52,6 +56,11 @@ export const ClipIndicators = memo(function ClipIndicators({
           {hasKeyframes && (
             <span title="Has keyframe animations">
               <Diamond className="w-3 h-3 text-amber-500 fill-amber-500/50" />
+            </span>
+          )}
+          {hasEffects && (
+            <span title="Has visual effects">
+              <Sparkles className="w-3 h-3 text-violet-400 fill-violet-400/40" />
             </span>
           )}
           {isShape && isMask && (
