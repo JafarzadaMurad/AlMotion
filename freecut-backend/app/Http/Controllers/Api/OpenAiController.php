@@ -18,6 +18,14 @@ class OpenAiController extends Controller
 
     private const DEFAULT_PLAN_MODELS = ['gpt-4o-mini'];
 
+    /**
+     * Where a subscription turn lands when the pool is exhausted. Sonnet
+     * rather than Opus: the fallback exists to keep the editor working, and
+     * silently upgrading a user to the most expensive model on a bad day is
+     * not a bill anyone agreed to.
+     */
+    private const SUBSCRIPTION_FALLBACK_MODEL = 'claude-sonnet-4-6';
+
     public function proxy(Request $request)
     {
         $user = $request->user();
@@ -51,6 +59,24 @@ class OpenAiController extends Controller
             $result = $provider->chat($rawBody, $payload, $apiKey);
         } catch (\Exception $e) {
             return response()->json(['error' => "Failed to reach {$provider->name()}: " . $e->getMessage()], 502);
+        }
+
+        // A subscription's rate limit is sized for one person's day of work, so
+        // an exhausted pool is an expected state rather than an error. The
+        // sidecar signals it with 503; fall back to the metered API key so the
+        // user gets an answer. Running out costs money, never function.
+        if ($result->status === 503 && $provider instanceof \App\Services\Ai\ClaudeSubscriptionProvider) {
+            $fallback = $this->providers->byName('anthropic');
+            $fallbackKey = $fallback ? $this->resolveApiKey($user, $fallback) : null;
+
+            if ($fallback && $fallbackKey) {
+                \Illuminate\Support\Facades\Log::info('Claude subscription unavailable, falling back to API key', [
+                    'reason' => $result->data['error']['code'] ?? 'unknown',
+                ]);
+                $payload['model'] = self::SUBSCRIPTION_FALLBACK_MODEL;
+                $provider = $fallback;
+                $result = $fallback->chat(json_encode($payload), $payload, $fallbackKey);
+            }
         }
 
         if ($result->successful()) {

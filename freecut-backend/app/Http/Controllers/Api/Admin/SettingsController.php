@@ -18,6 +18,9 @@ class SettingsController extends Controller
         $json2videoKey = $settings['json2video_api_key'] ?? null;
         $anthropicKey = $settings['anthropic_api_key'] ?? null;
         $geminiKey = $settings['gemini_api_key'] ?? null;
+        // The subscription "key" is a token list, not an API key — masked the
+        // same way because it grants the same access.
+        $claudeSubTokens = $settings['claude_subscription_tokens'] ?? null;
         $stripeSecret = $settings['stripe_secret_key'] ?? null;
         $stripePublishable = $settings['stripe_publishable_key'] ?? null;
         $stripeWebhook = $settings['stripe_webhook_secret'] ?? null;
@@ -43,6 +46,9 @@ class SettingsController extends Controller
             'anthropic_api_key_set' => !empty($anthropicKey),
             'gemini_api_key' => $geminiKey ? $this->maskKey($geminiKey) : null,
             'gemini_api_key_set' => !empty($geminiKey),
+            'claude_subscription_tokens' => $claudeSubTokens ? $this->maskKey($claudeSubTokens) : null,
+            'claude_subscription_tokens_set' => !empty($claudeSubTokens),
+            'claude_subscription_url' => $settings['claude_subscription_url'] ?? null,
             'stripe_secret_key' => $stripeSecret ? $this->maskKey($stripeSecret) : null,
             'stripe_secret_key_set' => !empty($stripeSecret),
             'stripe_publishable_key' => $stripePublishable ? $this->maskKey($stripePublishable) : null,
@@ -68,6 +74,9 @@ class SettingsController extends Controller
             'json2video_api_key' => 'nullable|string',
             'anthropic_api_key' => 'nullable|string',
             'gemini_api_key' => 'nullable|string',
+            'claude_subscription_tokens' => 'nullable|string',
+            'claude_subscription_url' => 'nullable|string',
+            'claude_subscription_secret' => 'nullable|string',
             'stripe_secret_key' => 'nullable|string',
             'stripe_publishable_key' => 'nullable|string',
             'stripe_webhook_secret' => 'nullable|string',
@@ -107,6 +116,12 @@ class SettingsController extends Controller
 
         if (array_key_exists('anthropic_api_key', $validated) && $validated['anthropic_api_key'] !== null) {
             Setting::set('anthropic_api_key', $validated['anthropic_api_key']);
+        }
+
+        foreach (['claude_subscription_tokens', 'claude_subscription_url', 'claude_subscription_secret'] as $subKey) {
+            if (array_key_exists($subKey, $validated) && $validated[$subKey] !== null) {
+                Setting::set($subKey, $validated[$subKey]);
+            }
         }
 
         if (array_key_exists('gemini_api_key', $validated) && $validated['gemini_api_key'] !== null) {

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Ai\AnthropicProvider;
+use App\Services\Ai\ClaudeSubscriptionProvider;
 use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\OpenAiProvider;
 use App\Services\Ai\ProviderRegistry;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
                 new OpenAiProvider(),
                 new AnthropicProvider(),
                 new GeminiProvider(),
+                new ClaudeSubscriptionProvider(),
             ]);
         });
     }
