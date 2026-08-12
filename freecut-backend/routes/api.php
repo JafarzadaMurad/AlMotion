@@ -153,5 +153,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/settings/key', [SettingsController::class, 'destroyKey']);
         Route::apiResource('agents', \App\Http\Controllers\Api\Admin\AgentController::class)->names('admin.agents');
 
+        // AI hub — providers, their models, their prices and spend, together.
+        Route::get('/ai-hub', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'index']);
+        Route::get('/ai-hub/usage', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'usage']);
+        Route::post('/ai-hub/pricing', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'storePricing']);
+        Route::put('/ai-hub/pricing/{pricing}', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'updatePricing']);
+        Route::delete('/ai-hub/pricing/{pricing}', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'destroyPricing']);
+        Route::post('/users/{user}/credits', [\App\Http\Controllers\Api\Admin\AiHubController::class, 'grantCredits']);
+
     });
 });

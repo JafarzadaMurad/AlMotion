@@ -13,6 +13,8 @@ class TokenUsage extends Model
         'prompt_tokens',
         'completion_tokens',
         'total_tokens',
+        'real_cost_usd',
+        'credits_charged',
         'endpoint'
     ];
 }

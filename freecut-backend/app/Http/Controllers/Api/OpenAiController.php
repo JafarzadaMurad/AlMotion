@@ -7,13 +7,18 @@ use App\Models\Setting;
 use App\Models\TokenUsage;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\ProviderRegistry;
+use App\Services\Billing\AiPricingService;
+use App\Services\Billing\CreditLedger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class OpenAiController extends Controller
 {
-    public function __construct(private ProviderRegistry $providers)
-    {
+    public function __construct(
+        private ProviderRegistry $providers,
+        private AiPricingService $pricing,
+        private CreditLedger $credits,
+    ) {
     }
 
     private const DEFAULT_PLAN_MODELS = ['gpt-4o-mini'];
@@ -82,6 +87,15 @@ class OpenAiController extends Controller
         if ($result->successful()) {
             $usage = $result->usage();
             if ($usage['total_tokens'] > 0) {
+                // Price against the model the user asked for, not the one that
+                // answered: a subscription turn still has a market value, and
+                // pricing it at zero would make the fallback look free.
+                $priced = $this->pricing->priceUsage(
+                    $provider->name() === 'claude_subscription' ? 'anthropic' : $provider->name(),
+                    $requestedModel,
+                    $usage + ['cached_tokens' => $result->data['usage']['cache_read_input_tokens'] ?? 0],
+                );
+
                 TokenUsage::create([
                     'user_id' => $user->id,
                     'provider' => $provider->name(),
@@ -90,10 +104,13 @@ class OpenAiController extends Controller
                     'prompt_tokens' => $usage['prompt_tokens'],
                     'completion_tokens' => $usage['completion_tokens'],
                     'total_tokens' => $usage['total_tokens'],
+                    'real_cost_usd' => $priced['real_cost_usd'],
+                    'credits_charged' => $priced['credits'],
                     'endpoint' => 'chat/completions',
                 ]);
 
                 $user->increment($provider->userUsageColumn(), $usage['total_tokens']);
+                $this->credits->charge($user, $priced['credits']);
             }
         }
 

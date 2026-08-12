@@ -13,6 +13,7 @@ class Plan extends Model
         'max_projects',
         'max_storage_mb',
         'max_ai_tokens_monthly',
+        'monthly_credits',
         'anthropic_tokens_monthly',
         'gemini_tokens_monthly',
         'price_monthly',

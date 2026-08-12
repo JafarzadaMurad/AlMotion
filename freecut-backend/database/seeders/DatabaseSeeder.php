@@ -46,5 +46,6 @@ class DatabaseSeeder extends Seeder
             'is_admin' => true,
             'plan_id' => $proPlan->id,
         ]);
+            $this->call(AiPricingSeeder::class);
     }
 }
