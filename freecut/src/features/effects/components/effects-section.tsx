@@ -2,7 +2,6 @@ import { useCallback, useMemo, memo, useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Plus, Eye, EyeOff, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/shared/ui/cn';
 import type { TimelineItem } from '@/types/timeline';
 import type { ItemEffect, GpuEffect } from '@/types/effects';
 import { EFFECT_PRESETS } from '@/types/effects';
@@ -81,7 +80,18 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
   );
 
   // GPU effect categories for dropdown menu
-  const gpuCategories = useMemo(() => getGpuCategoriesWithEffects(), []);
+  // Hide what cannot render rather than listing it greyed out — same decision
+  // as the left-rail effects browser.
+  const gpuCategories = useMemo(() => {
+    const all = getGpuCategoriesWithEffects();
+    if (!gpuUnavailable) return all;
+    return all
+      .map(({ category, effects: catEffects }) => ({
+        category,
+        effects: catEffects.filter((def) => hasCssEquivalent(def.id)),
+      }))
+      .filter(({ effects: catEffects }) => catEffects.length > 0);
+  }, [gpuUnavailable]);
 
   // Effect preview thumbnails — lazily GPU-rendered on first dropdown open
   const allEffectEntries = useMemo(
@@ -400,24 +410,11 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
                   <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
                     {category.charAt(0).toUpperCase() + category.slice(1)}
                   </div>
-                  {catEffects.map((def) => {
-                    // Without a GPU device only the CSS-equivalent effects
-                    // render. Marking them here answers "which of these
-                    // actually work?" before the click, instead of leaving the
-                    // user to discover it by seeing nothing happen.
-                    const inert = gpuUnavailable && !hasCssEquivalent(def.id);
-                    return (
+                  {catEffects.map((def) => (
                       <button
                         key={def.id}
                         type="button"
-                        disabled={inert}
-                        className={cn(
-                          'relative flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none',
-                          inert
-                            ? 'cursor-not-allowed opacity-40'
-                            : 'cursor-default hover:bg-accent hover:text-accent-foreground',
-                        )}
-                        title={inert ? 'Needs WebGPU — unavailable in this browser' : undefined}
+                        className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
                         onClick={() => {
                           handleAddGpuEffect(def.id);
                           closePicker();
@@ -433,14 +430,8 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
                           <span className="w-8 h-[18px] rounded-sm bg-muted flex-shrink-0" />
                         )}
                         <span className="flex-1 text-left">{def.name}</span>
-                        {inert && (
-                          <span className="text-[9px] font-semibold tracking-wide text-muted-foreground">
-                            GPU
-                          </span>
-                        )}
                       </button>
-                    );
-                  })}
+                    ))}
                 </div>
               ))}
 

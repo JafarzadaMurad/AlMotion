@@ -189,6 +189,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
     selectItems([textItem.id]);
   }, []);
 
+
   // Add shape item to timeline at the best available position
   const handleAddShape = useCallback((shapeType: ShapeType) => {
     // Read all needed state from stores directly to avoid subscriptions
@@ -315,7 +316,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
   }, [handleAddAdjustmentLayer]);
 
   // GPU effect categories and preview thumbnails (static data, memoize once)
-  const gpuCategories = useMemo(() => getGpuCategoriesWithEffects(), []);
+  const allGpuCategories = useMemo(() => getGpuCategoriesWithEffects(), []);
 
   // Without a WebGPU device most shaders are silently skipped at render time.
   // Marking them here means the browser answers "which of these work?" before
@@ -328,6 +329,19 @@ export const MediaSidebar = memo(function MediaSidebar() {
     });
     return () => { cancelled = true; };
   }, []);
+  // Hide what cannot render rather than showing it greyed out: a browser with
+  // no WebGPU device simply does not have those effects, and a long list of
+  // dead entries is noise the user has to learn to ignore. Categories left
+  // empty by the filter drop out too.
+  const gpuCategories = useMemo(() => {
+    if (!gpuUnavailable) return allGpuCategories;
+    return allGpuCategories
+      .map(({ category, effects }) => ({
+        category,
+        effects: effects.filter((def) => hasCssEquivalent(def.id)),
+      }))
+      .filter(({ effects }) => effects.length > 0);
+  }, [allGpuCategories, gpuUnavailable]);
   const allEffectEntries = useMemo(
     () => gpuCategories.flatMap(({ effects: catEffects }) =>
       catEffects.map((def) => ({ id: def.id, def }))
@@ -746,14 +760,11 @@ export const MediaSidebar = memo(function MediaSidebar() {
                     {category}
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
-                    {catEffects.map((def) => {
-                      const inert = gpuUnavailable && !hasCssEquivalent(def.id);
-                      return (
+                    {catEffects.map((def) => (
                       <button
                         key={def.id}
-                        draggable={!inert}
-                        disabled={inert}
-                        title={inert ? 'Needs WebGPU — unavailable in this browser' : def.name}
+                        draggable={true}
+                        title={def.name}
                         onDragStart={handleTemplateDragStart({
                           itemType: 'adjustment',
                           label: def.name,
@@ -768,11 +779,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
                           if (shouldSuppressGeneratedItemClick()) return;
                           handleAddGpuEffect(def.id);
                         }}
-                        className={`flex flex-col items-center gap-1 p-1.5 rounded-md border border-border transition-colors group ${
-                          inert
-                            ? 'opacity-40 cursor-not-allowed bg-secondary/10'
-                            : 'bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50'
-                        }`}
+                        className="flex flex-col items-center gap-1 p-1.5 rounded-md border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50 transition-colors group"
                       >
                         {effectPreviews.has(def.id) ? (
                           <img
@@ -785,11 +792,10 @@ export const MediaSidebar = memo(function MediaSidebar() {
                           <div className="w-full aspect-video rounded-sm bg-muted" />
                         )}
                         <span className="text-[9px] text-muted-foreground group-hover:text-foreground text-center leading-tight truncate w-full">
-                          {def.name}{inert ? ' · GPU' : ''}
+                          {def.name}
                         </span>
                       </button>
-                      );
-                    })}
+                    ))}
                   </div>
                 </div>
               ))}
