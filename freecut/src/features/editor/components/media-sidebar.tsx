@@ -16,6 +16,7 @@ import {
   Heart,
   Pentagon,
   Sparkles,
+  MoveDiagonal,
   Blend,
   Pen,
   WandSparkles,
@@ -33,6 +34,7 @@ import {
 } from '@/features/editor/deps/media-library';
 import { KeyframeGraphPanel } from '@/features/editor/deps/timeline-ui';
 import { TransitionsPanel } from './transitions-panel';
+import { AnimationsPanel } from '@/features/editor/deps/keyframes-contract';
 import {
   createDefaultAdjustmentItem,
   createDefaultShapeItem,
@@ -330,6 +332,7 @@ export const MediaSidebar = memo(function MediaSidebar() {
     { id: 'shapes' as const, icon: Pentagon, label: 'Shapes' },
     { id: 'effects' as const, icon: Layers, label: 'Effects' },
     { id: 'transitions' as const, icon: Blend, label: 'Transitions' },
+    { id: 'animations' as const, icon: MoveDiagonal, label: 'Animations' },
     { id: 'ai' as const, icon: WandSparkles, label: 'AI' },
   ];
 
@@ -775,6 +778,11 @@ export const MediaSidebar = memo(function MediaSidebar() {
           {/* Transitions Tab */}
           <div className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'transitions' ? 'block' : 'hidden'}`}>
             <TransitionsPanel />
+          </div>
+
+          {/* Animations Tab */}
+          <div className={`min-h-0 flex-1 overflow-hidden ${activeTab === 'animations' ? 'block' : 'hidden'}`}>
+            <AnimationsPanel />
           </div>
 
           {/* AI Tab */}

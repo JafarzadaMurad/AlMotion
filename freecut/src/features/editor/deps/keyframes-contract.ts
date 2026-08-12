@@ -10,4 +10,4 @@ export {
   getAutoKeyframeOperation,
   type AutoKeyframeOperation,
 } from '@/features/keyframes/utils/auto-keyframe';
-export { AnimationSection } from '@/features/keyframes/components/animation-section';
+export { AnimationsPanel } from '@/features/keyframes/components/animations-panel';

@@ -38,6 +38,17 @@ type BaseTimelineItem = {
   fadeOut?: number; // Video fade out duration in seconds (default: 0)
   // Visual effects (GPU shader effects)
   effects?: ItemEffect[];
+  /**
+   * Which camera-move preset produced this clip's keyframes, and how it was
+   * configured. Recorded so the Animations panel can show what is applied and
+   * reopen its settings; the keyframes themselves remain the source of truth
+   * for rendering, so hand-editing them never breaks playback.
+   */
+  motion?: {
+    preset: string;
+    intensity: number;
+    easing: string;
+  };
   // Blend mode for layer compositing (default: 'normal')
   blendMode?: BlendMode;
   // Corner pin transform (perspective warp)
