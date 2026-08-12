@@ -22,9 +22,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProviderRegistry::class, function () {
             return new ProviderRegistry([
                 new OpenAiProvider(),
+                // Ahead of AnthropicProvider on purpose: it claims Claude
+                // models only while the operator has switched Anthropic to
+                // subscription billing, and must win when it does.
+                new ClaudeSubscriptionProvider(),
                 new AnthropicProvider(),
                 new GeminiProvider(),
-                new ClaudeSubscriptionProvider(),
             ]);
         });
     }

@@ -27,22 +27,21 @@ use Illuminate\Support\Facades\Log;
 class ClaudeSubscriptionProvider implements AiProvider
 {
     /**
-     * Model IDs are prefixed so a user picking "subscription" is an explicit
-     * choice rather than a silent reroute of claude-* traffic away from the
-     * API key they may be paying for.
+     * Which harness alias each Claude model maps to. The user picks a Claude
+     * model as normal; whether it is billed to an API key or a subscription is
+     * an operator decision, not something to duplicate in the model list.
+     * Parallel model IDs were tried first and only moved the decision onto
+     * users who have no basis to make it.
      */
-    private const MODELS = [
-        'claude-sub-opus',
-        'claude-sub-sonnet',
-        'claude-sub-haiku',
+    private const MODEL_MAP = [
+        'claude-opus-4-7' => 'opus',
+        'claude-sonnet-4-6' => 'sonnet',
+        'claude-haiku-4-5' => 'haiku',
+        'claude-haiku-4-5-20251001' => 'haiku',
     ];
 
-    /** What the harness should actually run for each exposed ID. */
-    private const MODEL_MAP = [
-        'claude-sub-opus' => 'opus',
-        'claude-sub-sonnet' => 'sonnet',
-        'claude-sub-haiku' => 'haiku',
-    ];
+    public const MODE_SETTING = 'anthropic_mode';
+    public const MODE_SUBSCRIPTION = 'subscription';
 
     private const DEFAULT_URL = 'http://127.0.0.1:8790';
 
@@ -51,14 +50,27 @@ class ClaudeSubscriptionProvider implements AiProvider
         return 'claude_subscription';
     }
 
+    /**
+     * Empty on purpose: these are Anthropic's models, already advertised by
+     * AnthropicProvider. Listing them twice would double every Claude entry in
+     * the admin plan form and the model picker.
+     */
     public function supportedModels(): array
     {
-        return self::MODELS;
+        return [];
     }
 
+    /**
+     * Claims Claude models only while the operator has switched Anthropic to
+     * subscription billing. Registered ahead of AnthropicProvider so that when
+     * it does claim, it wins; when it does not, the API-key path is untouched.
+     */
     public function supportsModel(string $model): bool
     {
-        return in_array($model, self::MODELS, true);
+        if (!isset(self::MODEL_MAP[$model])) {
+            return false;
+        }
+        return Setting::get(self::MODE_SETTING) === self::MODE_SUBSCRIPTION;
     }
 
     /**

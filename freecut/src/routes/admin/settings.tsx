@@ -47,6 +47,8 @@ interface AdminSettings {
   claude_subscription_tokens: string | null;
   claude_subscription_tokens_set: boolean;
   claude_subscription_url: string | null;
+  claude_subscription_secret_set: boolean;
+  anthropic_mode: 'api_key' | 'subscription';
   gemini_api_key: string | null;
   gemini_api_key_set: boolean;
 }
@@ -70,6 +72,8 @@ function SettingsPage() {
   const [json2videoKey, setJson2videoKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [anthropicMode, setAnthropicMode] = useState<'api_key' | 'subscription'>('api_key');
+  const [showSidecarAdvanced, setShowSidecarAdvanced] = useState(false);
   const [claudeSubTokens, setClaudeSubTokens] = useState('');
   const [claudeSubUrl, setClaudeSubUrl] = useState('');
   const [claudeSubSecret, setClaudeSubSecret] = useState('');
@@ -82,10 +86,31 @@ function SettingsPage() {
       .then((data) => {
         setSettings(data);
         setAllowUserKeys(data.allow_user_api_keys);
+        setAnthropicMode(data.anthropic_mode ?? 'api_key');
         setUserKeyModels(data.user_key_allowed_models ?? ALL_MODELS.map((m) => m.id));
       })
       .finally(() => setLoading(false));
   }, []);
+
+  /**
+   * Delete a stored credential.
+   *
+   * Saving the form ignores blank fields on purpose, so clearing an input
+   * cannot remove a key — an admin who pasted the wrong one would be stuck
+   * with it. This asks the server to drop the row.
+   */
+  const removeKey = async (key: string) => {
+    if (!confirm(`Remove ${key.replace(/_/g, ' ')}? This cannot be undone.`)) return;
+    setSaving(true);
+    try {
+      await ApiClient.delete(`/admin/settings/key?key=${encodeURIComponent(key)}`);
+      const updated = await ApiClient.get<AdminSettings>('/admin/settings');
+      setSettings(updated);
+      setMessage('Removed');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -101,6 +126,7 @@ function SettingsPage() {
       if (heygenKey) payload.heygen_api_key = heygenKey;
       if (json2videoKey) payload.json2video_api_key = json2videoKey;
       if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+      payload.anthropic_mode = anthropicMode;
       if (claudeSubTokens) payload.claude_subscription_tokens = claudeSubTokens;
       if (claudeSubUrl) payload.claude_subscription_url = claudeSubUrl;
       if (claudeSubSecret) payload.claude_subscription_secret = claudeSubSecret;
@@ -118,6 +144,8 @@ function SettingsPage() {
       setJson2videoKey('');
       setAnthropicKey('');
       setGeminiKey('');
+      setClaudeSubTokens('');
+      setClaudeSubSecret('');
       setMessage('Settings saved successfully');
     } finally {
       setSaving(false);
@@ -373,101 +401,128 @@ function SettingsPage() {
           />
         </div>
 
-        {/* Anthropic (Claude) API Key */}
+        {/* Anthropic (Claude) — one card, two ways to pay for it */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="mb-1 text-lg font-semibold text-white">
-            Anthropic (Claude) API Key
-          </h2>
+          <h2 className="mb-1 text-lg font-semibold text-white">Anthropic (Claude)</h2>
           <p className="mb-4 text-sm text-zinc-400">
-            Used for Claude models (Opus 4.7, Sonnet 4.6, Haiku 4.5). Get
-            your key from console.anthropic.com.
+            Powers the Claude models. Choose how they are billed — the models
+            users see stay the same either way.
           </p>
 
-          {settings?.anthropic_api_key_set && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
-                Set
-              </span>
-              <span className="font-mono text-sm text-zinc-400">
-                {settings.anthropic_api_key}
-              </span>
+          {/* Which credential matters follows from this, so only the relevant
+              one is shown. Having both visible at once was the confusing part. */}
+          <div className="mb-4 inline-flex rounded-lg border border-zinc-700 bg-zinc-800 p-1">
+            {([
+              { value: 'api_key' as const, label: 'API key' },
+              { value: 'subscription' as const, label: 'Claude Code subscription' },
+            ]).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setAnthropicMode(option.value)}
+                className={
+                  anthropicMode === option.value
+                    ? 'rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white'
+                    : 'rounded-md px-3 py-1.5 text-sm text-zinc-400 hover:text-white'
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {anthropicMode === 'api_key' ? (
+            <div>
+              {settings?.anthropic_api_key_set && (
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">Set</span>
+                  <span className="font-mono text-sm text-zinc-400">{settings.anthropic_api_key}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeKey('anthropic_api_key')}
+                    className="ml-auto rounded px-2 py-1 text-xs text-red-400 hover:bg-red-950 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <input
+                type="password"
+                placeholder={settings?.anthropic_api_key_set ? 'Enter new key to replace...' : 'sk-ant-...'}
+                value={anthropicKey}
+                onChange={(e) => setAnthropicKey(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <p className="mt-2 text-xs text-zinc-500">From console.anthropic.com. Billed per token.</p>
+            </div>
+          ) : (
+            <div>
+              {settings?.claude_subscription_tokens_set && (
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">Set</span>
+                  <span className="font-mono text-sm text-zinc-400">{settings.claude_subscription_tokens}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeKey('claude_subscription_tokens')}
+                    className="ml-auto rounded px-2 py-1 text-xs text-red-400 hover:bg-red-950 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <input
+                type="password"
+                placeholder={settings?.claude_subscription_tokens_set ? 'Enter new token to replace...' : 'sk-ant-oat01-...'}
+                value={claudeSubTokens}
+                onChange={(e) => setClaudeSubTokens(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+              />
+              <p className="mt-2 text-xs text-zinc-500">
+                From <code className="text-zinc-400">claude setup-token</code>. Needs the AI sidecar
+                running. A subscription is rate limited per person, so when it runs out chat falls
+                back to the API key — keep one set.
+              </p>
+
+              {/* Defaults work for the normal single-machine install, so these
+                  are folded away rather than asked of everyone. */}
+              <button
+                type="button"
+                onClick={() => setShowSidecarAdvanced((open) => !open)}
+                className="mt-3 text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                {showSidecarAdvanced ? '− Hide' : '+ Show'} sidecar connection settings
+              </button>
+
+              {showSidecarAdvanced && (
+                <div className="mt-3 space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Sidecar URL{settings?.claude_subscription_url ? ` (current: ${settings.claude_subscription_url})` : ' — default http://127.0.0.1:8790'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="http://127.0.0.1:8790"
+                      value={claudeSubUrl}
+                      onChange={(e) => setClaudeSubUrl(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Sidecar secret{settings?.claude_subscription_secret_set ? ' (set)' : ' — only if SIDECAR_SECRET is configured'}
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Leave blank if unset"
+                      value={claudeSubSecret}
+                      onChange={(e) => setClaudeSubSecret(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-
-          <input
-            type="password"
-            placeholder={
-              settings?.anthropic_api_key_set
-                ? 'Enter new key to replace...'
-                : 'sk-ant-...'
-            }
-            value={anthropicKey}
-            onChange={(e) => setAnthropicKey(e.target.value)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-
-        {/* Claude Code subscription */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="mb-1 text-lg font-semibold text-white">
-            Claude Code Subscription
-          </h2>
-          <p className="mb-4 text-sm text-zinc-400">
-            Runs the <code className="text-zinc-300">claude-sub-*</code> models on a Claude
-            Code subscription instead of a metered API key. Needs the AI sidecar
-            running (<code className="text-zinc-300">ai-sidecar/</code>). When the
-            subscription hits its rate limit, chat falls back to the Anthropic API key
-            above automatically.
-          </p>
-
-          {settings?.claude_subscription_tokens_set && (
-            <div className="mb-3 flex items-center gap-2">
-              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
-                Set
-              </span>
-              <span className="font-mono text-sm text-zinc-400">
-                {settings.claude_subscription_tokens}
-              </span>
-            </div>
-          )}
-
-          <label className="mb-1 block text-xs text-zinc-500">
-            Token — from <code>claude setup-token</code>. A JSON array of
-            {' '}<code>{'{id, label, token}'}</code> also works for several tokens.
-          </label>
-          <input
-            type="password"
-            placeholder={
-              settings?.claude_subscription_tokens_set
-                ? 'Enter new token to replace...'
-                : 'sk-ant-oat01-...'
-            }
-            value={claudeSubTokens}
-            onChange={(e) => setClaudeSubTokens(e.target.value)}
-            className="mb-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
-
-          <label className="mb-1 block text-xs text-zinc-500">
-            Sidecar URL {settings?.claude_subscription_url ? `(current: ${settings.claude_subscription_url})` : '(default: http://127.0.0.1:8790)'}
-          </label>
-          <input
-            type="text"
-            placeholder="http://127.0.0.1:8790"
-            value={claudeSubUrl}
-            onChange={(e) => setClaudeSubUrl(e.target.value)}
-            className="mb-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
-
-          <label className="mb-1 block text-xs text-zinc-500">
-            Sidecar secret — must match SIDECAR_SECRET. Leave blank if the sidecar runs without one.
-          </label>
-          <input
-            type="password"
-            placeholder="Leave blank if unset"
-            value={claudeSubSecret}
-            onChange={(e) => setClaudeSubSecret(e.target.value)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
         </div>
 
         {/* Google Gemini API Key */}

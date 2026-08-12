@@ -49,6 +49,8 @@ class SettingsController extends Controller
             'claude_subscription_tokens' => $claudeSubTokens ? $this->maskKey($claudeSubTokens) : null,
             'claude_subscription_tokens_set' => !empty($claudeSubTokens),
             'claude_subscription_url' => $settings['claude_subscription_url'] ?? null,
+            'claude_subscription_secret_set' => !empty($settings['claude_subscription_secret'] ?? null),
+            'anthropic_mode' => $settings['anthropic_mode'] ?? 'api_key',
             'stripe_secret_key' => $stripeSecret ? $this->maskKey($stripeSecret) : null,
             'stripe_secret_key_set' => !empty($stripeSecret),
             'stripe_publishable_key' => $stripePublishable ? $this->maskKey($stripePublishable) : null,
@@ -59,6 +61,46 @@ class SettingsController extends Controller
             'ai_rules' => $aiRules ? json_decode($aiRules, true) : [],
             'ai_tool_descriptions' => json_decode($settings['ai_tool_descriptions'] ?? '{}', true) ?? [],
         ]);
+    }
+
+    /**
+     * Delete a stored credential.
+     *
+     * The update endpoint deliberately ignores empty values so that an admin
+     * saving the form does not wipe every key they left blank — which leaves
+     * no way to remove one. This does that job explicitly.
+     */
+    public function destroyKey(Request $request)
+    {
+        $validated = $request->validate([
+            'key' => 'required|string',
+        ]);
+
+        // Allow-listed: this endpoint deletes rows, and a free-text key would
+        // let an admin remove settings that are not credentials at all.
+        $removable = [
+            'openai_api_key',
+            'anthropic_api_key',
+            'gemini_api_key',
+            'pexels_api_key',
+            'wavespeed_api_key',
+            'heygen_api_key',
+            'json2video_api_key',
+            'claude_subscription_tokens',
+            'claude_subscription_secret',
+            'claude_subscription_url',
+            'stripe_secret_key',
+            'stripe_publishable_key',
+            'stripe_webhook_secret',
+        ];
+
+        if (!in_array($validated['key'], $removable, true)) {
+            return response()->json(['message' => 'That setting cannot be removed here.'], 422);
+        }
+
+        Setting::where('key', $validated['key'])->delete();
+
+        return response()->json(['message' => 'Removed', 'key' => $validated['key']]);
     }
 
     public function update(Request $request)
@@ -74,6 +116,7 @@ class SettingsController extends Controller
             'json2video_api_key' => 'nullable|string',
             'anthropic_api_key' => 'nullable|string',
             'gemini_api_key' => 'nullable|string',
+            'anthropic_mode' => 'nullable|string|in:api_key,subscription',
             'claude_subscription_tokens' => 'nullable|string',
             'claude_subscription_url' => 'nullable|string',
             'claude_subscription_secret' => 'nullable|string',
@@ -118,6 +161,13 @@ class SettingsController extends Controller
             Setting::set('anthropic_api_key', $validated['anthropic_api_key']);
         }
 
+        if (array_key_exists('anthropic_mode', $validated) && $validated['anthropic_mode'] !== null) {
+            Setting::set('anthropic_mode', $validated['anthropic_mode']);
+        }
+
+        // An empty string clears the value. The other keys on this page use
+        // `!== null` and so can never be removed once set — an operator who
+        // pastes the wrong key has no way to take it back out.
         foreach (['claude_subscription_tokens', 'claude_subscription_url', 'claude_subscription_secret'] as $subKey) {
             if (array_key_exists($subKey, $validated) && $validated[$subKey] !== null) {
                 Setting::set($subKey, $validated[$subKey]);
