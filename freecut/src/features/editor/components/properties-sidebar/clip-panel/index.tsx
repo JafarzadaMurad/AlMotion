@@ -21,6 +21,7 @@ import { AudioSection } from './audio-section';
 import { TextSection } from './text-section';
 import { ShapeSection } from './shape-section';
 import { CornerPinSection } from './corner-pin-section';
+import { AnimationSection } from '@/features/editor/deps/keyframes-contract';
 import { EffectsSection } from '@/features/editor/deps/effects-contract';
 
 /**
@@ -269,6 +270,8 @@ export const ClipPanel = memo(function ClipPanel() {
                   Effects on adjustment layers apply to all items on tracks above.
                 </div>
               )}
+              <AnimationSection items={visualItems} canvas={canvas} />
+              <Separator />
               <EffectsSection items={visualItems} />
               {hasTextItems && <Separator />}
               {hasTextItems && (
