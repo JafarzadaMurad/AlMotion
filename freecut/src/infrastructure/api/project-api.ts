@@ -11,6 +11,8 @@ interface BackendProject {
   height: number;
   fps: number;
   background_color: string;
+  /** Appended by the Project model; null until a cover has been uploaded. */
+  thumbnail_url: string | null;
   timeline_data: ProjectTimeline | null;
   settings: Record<string, unknown> | null;
   created_at: string;
@@ -44,6 +46,7 @@ function backendToFrontend(bp: BackendProject): Project {
       backgroundColor: bp.background_color,
     },
     timeline: bp.timeline_data ?? undefined,
+    thumbnail_url: bp.thumbnail_url ?? null,
   };
 }
 
