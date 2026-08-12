@@ -28,6 +28,23 @@ cd "$REPO_DIR"
 # the incoming commit also touches makes `git pull` abort, and without this the
 # rest of the script would happily "succeed" against stale code.
 say "Checking the working tree is clean"
+
+# Some tracked files are rewritten by the build itself or by Laravel at
+# runtime, so they are dirty after every deploy and would block the next one.
+# Discard those, then insist the rest is clean — the point of the check is to
+# catch edits that would abort the pull, not routine churn.
+GENERATED_PATHS=(
+  'freecut/src/routeTree.gen.ts'
+  'freecut-backend/bootstrap/cache/.gitignore'
+  'freecut-backend/storage'
+  'deploy.sh'
+)
+for path in "${GENERATED_PATHS[@]}"; do
+  git checkout -- "$path" 2>/dev/null || true
+done
+# File-mode flips (chmod +x on this script) are not content changes.
+git config core.fileMode false
+
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   git status --short --untracked-files=no
   fail "Uncommitted changes above. Commit, stash, or 'git checkout --' them, then re-run."
