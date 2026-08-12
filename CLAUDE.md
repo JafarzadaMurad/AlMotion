@@ -266,6 +266,49 @@ Full architecture documented in [freecut/CLAUDE.md](freecut/CLAUDE.md). Key inva
 
 ## Next up (agreed with the user, not started)
 
+### 0. SVG filter fallback — make more effects work without a GPU
+
+`src/lib/gpu-effects/css-fallback.ts` covers 10 of 39 effects with native CSS
+filter functions. CSS has no more functions to offer, but **SVG filters do**, need
+no GPU, and are referenced the same way from both render paths: `filter: url(#id)`
+works in CSS *and* in Canvas2D's `ctx.filter`, which is how the canvas path already
+applies the CSS fallback.
+
+Reachable with SVG (roughly 12 more):
+
+| Effect | SVG primitive |
+|---|---|
+| Sharpen, Edge Detect | `feConvolveMatrix` |
+| Posterize, Threshold | `feComponentTransfer` type="discrete" |
+| Levels, Curves | `feComponentTransfer` type="linear" / "table" |
+| Temperature, Vibrance | `feColorMatrix` |
+| RGB Split, Color Glitch | `feOffset` per channel + `feBlend` |
+| Motion Blur | `feGaussianBlur stdDeviation="N 0"` (directional) |
+| Film Grain | `feTurbulence` + `feComposite` |
+| Glow | `feGaussianBlur` + `feBlend mode="screen"` |
+
+Not reachable without a shader — leave inert and keep them marked: Kaleidoscope,
+ASCII, Dither, Halftone, Fluted Glass, Twirl, Bulge, Mirror, Chroma Key,
+Radial/Zoom Blur, Pixelate. (Vignette and Scanlines are overlays rather than
+filters, so they need a different mechanism again.)
+
+Shape of the work: a builder that emits an `<svg><filter>` def per effect+params
+combination into a hidden container, keyed by a hash of the params so identical
+settings share one node and stale ones are collected; `buildCssEffectFilter`
+returns `url(#hash)` alongside the plain CSS functions. Both existing call sites
+(`use-item-visual-state.ts` for DOM, `client-render-engine.ts` for canvas/export)
+then need no change beyond receiving a longer filter string.
+
+Verify each mapping against its WGSL shader in `src/lib/gpu-effects/effects/` —
+the parameter ranges differ per effect and getting them wrong produces a preview
+that disagrees with a GPU export.
+
+**Also unresolved:** left-rail effect tiles create *adjustment layers*
+(`itemType: 'adjustment'`), which composite across tracks and are not covered by
+the per-item CSS fallback at all — so every effect added that way is inert without
+a GPU, whatever its type. Decide whether to support them or steer users to the
+per-clip picker.
+
 ### 1. Media must live on the server, not on the user's disk
 
 Today media is bound to **File System Access handles** pointing at files on whichever machine
