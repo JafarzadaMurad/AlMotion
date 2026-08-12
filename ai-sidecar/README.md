@@ -61,6 +61,25 @@ env var is a fallback for running the sidecar standalone.
 **This process holds subscription tokens and runs a harness. It must never be
 reachable from outside the machine.** Bind loopback and set a secret.
 
+### As a service
+
+Running it in a terminal only lasts until the terminal closes. On the VPS:
+
+```bash
+sudo cp /opt/almotion/ai-sidecar/almotion-sidecar.service /etc/systemd/system/
+sudo systemctl edit almotion-sidecar     # add SIDECAR_SECRET here, not in the unit
+sudo systemctl daemon-reload
+sudo systemctl enable --now almotion-sidecar
+journalctl -u almotion-sidecar -f
+```
+
+The override should contain:
+
+```
+[Service]
+Environment=SIDECAR_SECRET=your-secret
+```
+
 ## Endpoints
 
 - `GET /health` — pool status. Never includes the tokens themselves.

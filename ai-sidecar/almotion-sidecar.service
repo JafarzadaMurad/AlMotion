@@ -1,0 +1,41 @@
+# systemd unit for the AlMotion AI sidecar.
+#
+# Install:
+#   sudo cp /opt/almotion/ai-sidecar/almotion-sidecar.service /etc/systemd/system/
+#   sudo systemctl edit almotion-sidecar     # put SIDECAR_SECRET in the override
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now almotion-sidecar
+#
+# Check:  systemctl status almotion-sidecar
+# Logs:   journalctl -u almotion-sidecar -f
+#
+# The secret belongs in a drop-in override rather than here, so it is not
+# committed and not world-readable in /etc/systemd/system.
+
+[Unit]
+Description=AlMotion AI sidecar (Claude Code subscription)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=murad
+WorkingDirectory=/opt/almotion/ai-sidecar
+ExecStart=/usr/bin/env node src/server.js
+Restart=always
+RestartSec=5
+
+# Loopback only. This process holds subscription tokens and runs the Claude
+# Code harness; nothing outside the machine has any business reaching it.
+Environment=SIDECAR_HOST=127.0.0.1
+Environment=SIDECAR_PORT=8790
+
+# The harness is a Node subprocess spawning another; give it room but not the
+# whole box, so a runaway turn cannot take the editor down with it.
+MemoryMax=2G
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

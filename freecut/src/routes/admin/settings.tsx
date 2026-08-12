@@ -44,6 +44,9 @@ interface AdminSettings {
   json2video_api_key_set: boolean;
   anthropic_api_key: string | null;
   anthropic_api_key_set: boolean;
+  claude_subscription_tokens: string | null;
+  claude_subscription_tokens_set: boolean;
+  claude_subscription_url: string | null;
   gemini_api_key: string | null;
   gemini_api_key_set: boolean;
 }
@@ -67,6 +70,9 @@ function SettingsPage() {
   const [json2videoKey, setJson2videoKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [claudeSubTokens, setClaudeSubTokens] = useState('');
+  const [claudeSubUrl, setClaudeSubUrl] = useState('');
+  const [claudeSubSecret, setClaudeSubSecret] = useState('');
   const [allowUserKeys, setAllowUserKeys] = useState(true);
   const [userKeyModels, setUserKeyModels] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -95,6 +101,9 @@ function SettingsPage() {
       if (heygenKey) payload.heygen_api_key = heygenKey;
       if (json2videoKey) payload.json2video_api_key = json2videoKey;
       if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+      if (claudeSubTokens) payload.claude_subscription_tokens = claudeSubTokens;
+      if (claudeSubUrl) payload.claude_subscription_url = claudeSubUrl;
+      if (claudeSubSecret) payload.claude_subscription_secret = claudeSubSecret;
       if (geminiKey) payload.gemini_api_key = geminiKey;
 
       await ApiClient.put('/admin/settings', payload);
@@ -394,6 +403,69 @@ function SettingsPage() {
             }
             value={anthropicKey}
             onChange={(e) => setAnthropicKey(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        {/* Claude Code subscription */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="mb-1 text-lg font-semibold text-white">
+            Claude Code Subscription
+          </h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            Runs the <code className="text-zinc-300">claude-sub-*</code> models on a Claude
+            Code subscription instead of a metered API key. Needs the AI sidecar
+            running (<code className="text-zinc-300">ai-sidecar/</code>). When the
+            subscription hits its rate limit, chat falls back to the Anthropic API key
+            above automatically.
+          </p>
+
+          {settings?.claude_subscription_tokens_set && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="rounded bg-green-900 px-2 py-1 text-xs text-green-300">
+                Set
+              </span>
+              <span className="font-mono text-sm text-zinc-400">
+                {settings.claude_subscription_tokens}
+              </span>
+            </div>
+          )}
+
+          <label className="mb-1 block text-xs text-zinc-500">
+            Token — from <code>claude setup-token</code>. A JSON array of
+            {' '}<code>{'{id, label, token}'}</code> also works for several tokens.
+          </label>
+          <input
+            type="password"
+            placeholder={
+              settings?.claude_subscription_tokens_set
+                ? 'Enter new token to replace...'
+                : 'sk-ant-oat01-...'
+            }
+            value={claudeSubTokens}
+            onChange={(e) => setClaudeSubTokens(e.target.value)}
+            className="mb-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+
+          <label className="mb-1 block text-xs text-zinc-500">
+            Sidecar URL {settings?.claude_subscription_url ? `(current: ${settings.claude_subscription_url})` : '(default: http://127.0.0.1:8790)'}
+          </label>
+          <input
+            type="text"
+            placeholder="http://127.0.0.1:8790"
+            value={claudeSubUrl}
+            onChange={(e) => setClaudeSubUrl(e.target.value)}
+            className="mb-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+          />
+
+          <label className="mb-1 block text-xs text-zinc-500">
+            Sidecar secret — must match SIDECAR_SECRET. Leave blank if the sidecar runs without one.
+          </label>
+          <input
+            type="password"
+            placeholder="Leave blank if unset"
+            value={claudeSubSecret}
+            onChange={(e) => setClaudeSubSecret(e.target.value)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
           />
         </div>
