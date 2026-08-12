@@ -2,6 +2,7 @@ import { useCallback, useMemo, memo, useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Plus, Eye, EyeOff, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/shared/ui/cn';
 import type { TimelineItem } from '@/types/timeline';
 import type { ItemEffect, GpuEffect } from '@/types/effects';
 import { EFFECT_PRESETS } from '@/types/effects';
@@ -9,7 +10,7 @@ import { useTimelineStore } from '@/features/effects/deps/timeline-contract';
 import { useGizmoStore } from '@/features/effects/deps/preview-contract';
 import { PropertySection } from '@/shared/ui/property-controls';
 import { GpuEffectPanel, GpuWheelsPanel, GpuCurvesPanel } from './panels';
-import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams, EffectsPipeline, getGpuOnlyEffectTypes } from '@/infrastructure/gpu/effects';
+import { getGpuCategoriesWithEffects, getGpuEffect, getGpuEffectDefaultParams, EffectsPipeline, getGpuOnlyEffectTypes, hasCssEquivalent } from '@/infrastructure/gpu/effects';
 import { useEffectPreviews } from '../hooks/use-effect-previews';
 
 interface EffectsSectionProps {
@@ -399,28 +400,47 @@ export const EffectsSection = memo(function EffectsSection({ items }: EffectsSec
                   <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
                     {category.charAt(0).toUpperCase() + category.slice(1)}
                   </div>
-                  {catEffects.map((def) => (
-                    <button
-                      key={def.id}
-                      type="button"
-                      className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
-                      onClick={() => {
-                        handleAddGpuEffect(def.id);
-                        closePicker();
-                      }}
-                    >
-                      {effectPreviews.has(def.id) ? (
-                        <img
-                          src={effectPreviews.get(def.id)}
-                          alt=""
-                          className="w-8 h-[18px] rounded-sm object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <span className="w-8 h-[18px] rounded-sm bg-muted flex-shrink-0" />
-                      )}
-                      {def.name}
-                    </button>
-                  ))}
+                  {catEffects.map((def) => {
+                    // Without a GPU device only the CSS-equivalent effects
+                    // render. Marking them here answers "which of these
+                    // actually work?" before the click, instead of leaving the
+                    // user to discover it by seeing nothing happen.
+                    const inert = gpuUnavailable && !hasCssEquivalent(def.id);
+                    return (
+                      <button
+                        key={def.id}
+                        type="button"
+                        disabled={inert}
+                        className={cn(
+                          'relative flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none',
+                          inert
+                            ? 'cursor-not-allowed opacity-40'
+                            : 'cursor-default hover:bg-accent hover:text-accent-foreground',
+                        )}
+                        title={inert ? 'Needs WebGPU — unavailable in this browser' : undefined}
+                        onClick={() => {
+                          handleAddGpuEffect(def.id);
+                          closePicker();
+                        }}
+                      >
+                        {effectPreviews.has(def.id) ? (
+                          <img
+                            src={effectPreviews.get(def.id)}
+                            alt=""
+                            className="w-8 h-[18px] rounded-sm object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <span className="w-8 h-[18px] rounded-sm bg-muted flex-shrink-0" />
+                        )}
+                        <span className="flex-1 text-left">{def.name}</span>
+                        {inert && (
+                          <span className="text-[9px] font-semibold tracking-wide text-muted-foreground">
+                            GPU
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
 
