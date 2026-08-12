@@ -47,7 +47,7 @@ import type { TextItem, ShapeItem, ShapeType, AdjustmentItem } from '@/types/tim
 import { useMaskEditorStore } from '@/features/editor/deps/preview';
 import type { VisualEffect, GpuEffect } from '@/types/effects';
 import { EFFECT_PRESETS } from '@/types/effects';
-import { getGpuCategoriesWithEffects, getGpuEffectDefaultParams } from '@/infrastructure/gpu/effects';
+import { getGpuCategoriesWithEffects, getGpuEffectDefaultParams, EffectsPipeline, hasCssEquivalent } from '@/infrastructure/gpu/effects';
 import { useEffectPreviews } from '@/features/editor/deps/effects-contract';
 import { createLogger } from '@/shared/logging/logger';
 import { useSettingsStore } from '@/features/editor/deps/settings';
@@ -316,6 +316,18 @@ export const MediaSidebar = memo(function MediaSidebar() {
 
   // GPU effect categories and preview thumbnails (static data, memoize once)
   const gpuCategories = useMemo(() => getGpuCategoriesWithEffects(), []);
+
+  // Without a WebGPU device most shaders are silently skipped at render time.
+  // Marking them here means the browser answers "which of these work?" before
+  // the user drags one onto a clip and sees nothing happen.
+  const [gpuUnavailable, setGpuUnavailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void EffectsPipeline.requestCachedDevice().then((device) => {
+      if (!cancelled) setGpuUnavailable(!device);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const allEffectEntries = useMemo(
     () => gpuCategories.flatMap(({ effects: catEffects }) =>
       catEffects.map((def) => ({ id: def.id, def }))
@@ -734,10 +746,14 @@ export const MediaSidebar = memo(function MediaSidebar() {
                     {category}
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
-                    {catEffects.map((def) => (
+                    {catEffects.map((def) => {
+                      const inert = gpuUnavailable && !hasCssEquivalent(def.id);
+                      return (
                       <button
                         key={def.id}
-                        draggable={true}
+                        draggable={!inert}
+                        disabled={inert}
+                        title={inert ? 'Needs WebGPU — unavailable in this browser' : def.name}
                         onDragStart={handleTemplateDragStart({
                           itemType: 'adjustment',
                           label: def.name,
@@ -752,7 +768,11 @@ export const MediaSidebar = memo(function MediaSidebar() {
                           if (shouldSuppressGeneratedItemClick()) return;
                           handleAddGpuEffect(def.id);
                         }}
-                        className="flex flex-col items-center gap-1 p-1.5 rounded-md border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50 transition-colors group"
+                        className={`flex flex-col items-center gap-1 p-1.5 rounded-md border border-border transition-colors group ${
+                          inert
+                            ? 'opacity-40 cursor-not-allowed bg-secondary/10'
+                            : 'bg-secondary/30 hover:bg-secondary/50 hover:border-primary/50'
+                        }`}
                       >
                         {effectPreviews.has(def.id) ? (
                           <img
@@ -765,10 +785,11 @@ export const MediaSidebar = memo(function MediaSidebar() {
                           <div className="w-full aspect-video rounded-sm bg-muted" />
                         )}
                         <span className="text-[9px] text-muted-foreground group-hover:text-foreground text-center leading-tight truncate w-full">
-                          {def.name}
+                          {def.name}{inert ? ' · GPU' : ''}
                         </span>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
