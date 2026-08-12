@@ -266,7 +266,42 @@ Full architecture documented in [freecut/CLAUDE.md](freecut/CLAUDE.md). Key inva
 
 ## Next up (agreed with the user, not started)
 
-### 0. SVG filter fallback — make more effects work without a GPU
+### 0. Subscription-backed AI providers (Claude Code, later Gemini CLI, Codex)
+
+Goal: run the editor's AI on a Claude Code **subscription** instead of an API key,
+switchable from admin — the same thing `D:\AntiGravity\whatsappAuto` already does.
+Gemini CLI and Codex are to follow on the same mechanism.
+
+**How the reference works** (`whatsappAuto/src/lib/claude-subscription.ts`, 641 lines):
+a subscription cannot be driven through `/v1/messages`; it only works through the
+Claude Code harness. So the module runs a turn through `@anthropic-ai/claude-agent-sdk`
+and — the important part — **tools still work**: app tools are bridged into an
+*in-process MCP server* via `createSdkMcpServer`, exposed as `mcp__agent__*`, and the
+harness's own bash/file tools are deliberately excluded. Tool calls come back as
+`tool_use` blocks with the prefix stripped, returned in a `generateText`-shaped
+result. It also pools multiple tokens, benches one that hits a rate limit for a
+cooldown, and falls back to the API key when all are benched.
+
+**Why AlMotion cannot copy it directly:** that is Node, and this backend is PHP.
+The Agent SDK has no PHP equivalent, and a bare `claude` CLI subprocess gives no
+in-process MCP bridge — which is exactly what makes tools work.
+
+**Planned shape — a Node sidecar speaking OpenAI:** a small service that exposes an
+OpenAI-compatible `/chat/completions`, converts the incoming `tools` JSON Schema into
+SDK MCP tools, runs the turn on the subscription, and returns `tool_calls` in OpenAI
+format. Laravel then needs only another `AiProvider` that POSTs to it, and the whole
+frontend (which already speaks OpenAI tool-calling, ~30 tools) changes not at all.
+The same sidecar is where Gemini CLI and Codex go later — one process, one contract,
+three backends — which is why this is worth more than a Claude-only shortcut.
+
+Carry over from the reference: token pool with cooldown on rate limit, health probe,
+and automatic fallback to the API key. Admin needs an API-key/subscription switch and
+a token field, stored in the existing `settings` table.
+
+Note for the record: Claude Code subscriptions are sold for individual interactive
+use. The user is aware and has chosen to proceed; it is internal-staff only.
+
+### 1. SVG filter fallback — make more effects work without a GPU
 
 `src/lib/gpu-effects/css-fallback.ts` covers 10 of 39 effects with native CSS
 filter functions. CSS has no more functions to offer, but **SVG filters do**, need
@@ -309,7 +344,7 @@ the per-item CSS fallback at all — so every effect added that way is inert wit
 a GPU, whatever its type. Decide whether to support them or steer users to the
 per-clip picker.
 
-### 1. Media must live on the server, not on the user's disk
+### 2. Media must live on the server, not on the user's disk
 
 Today media is bound to **File System Access handles** pointing at files on whichever machine
 imported them. Opening the project elsewhere shows "N Missing", and re-granting permission
@@ -328,7 +363,7 @@ import with a clear message; remove the broken-media/relink flow; one-off migrat
 existing handle-bound projects. **Risk: user files — do not rush this.**
 Note: 500 MB (free plan) is ~5 minutes of 1080p; the plan tiers need rethinking alongside VPS disk.
 
-### 2. "Animation" section — Pan & Zoom / Ken Burns
+### 3. "Animation" section — Pan & Zoom / Ken Burns
 
 Build on the existing keyframe system (`src/features/keyframes/`), **not** as a shader — pan/zoom
 is a transform over time, so it needs no GPU and works on machines with no adapter. A preset
