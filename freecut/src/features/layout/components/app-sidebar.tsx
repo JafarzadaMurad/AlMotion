@@ -34,6 +34,7 @@ const ADMIN_ITEMS = [
   { to: '/admin/payments' as const, label: 'Payments', icon: CreditCard },
   { to: '/admin/users' as const, label: 'Users', icon: Users },
   { to: '/admin/agents' as const, label: 'Agents', icon: Bot },
+  { to: '/admin/ai-hub' as const, label: 'AI Providers', icon: Brain },
   { to: '/admin/ai-config' as const, label: 'AI Config', icon: Brain },
   { to: '/admin/settings' as const, label: 'Settings', icon: Wrench },
 ];

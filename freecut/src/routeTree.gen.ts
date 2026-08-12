@@ -19,6 +19,7 @@ import { Route as AgentsIndexRouteImport } from './routes/agents/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectsNewRouteImport } from './routes/projects/new'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as IntegrationsMcpRouteImport } from './routes/integrations.mcp'
 import { Route as EditorProjectIdRouteImport } from './routes/editor/$projectId'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AgentsNewRouteImport } from './routes/agents/new'
@@ -26,7 +27,9 @@ import { Route as AgentsAgentIdRouteImport } from './routes/agents/$agentId'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminPlansRouteImport } from './routes/admin/plans'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
+import { Route as AdminAiHubRouteImport } from './routes/admin/ai-hub'
 import { Route as AdminAiConfigRouteImport } from './routes/admin/ai-config'
 import { Route as AdminAgentsRouteImport } from './routes/admin/agents'
 
@@ -80,6 +83,11 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegrationsMcpRoute = IntegrationsMcpRouteImport.update({
+  id: '/integrations/mcp',
+  path: '/integrations/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EditorProjectIdRoute = EditorProjectIdRouteImport.update({
   id: '/editor/$projectId',
   path: '/editor/$projectId',
@@ -117,9 +125,19 @@ const AdminPlansRoute = AdminPlansRouteImport.update({
   path: '/admin/plans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAiHubRoute = AdminAiHubRouteImport.update({
+  id: '/admin/ai-hub',
+  path: '/admin/ai-hub',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAiConfigRoute = AdminAiConfigRouteImport.update({
@@ -141,7 +159,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/ai-config': typeof AdminAiConfigRoute
+  '/admin/ai-hub': typeof AdminAiHubRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -149,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/agents/new': typeof AgentsNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof EditorProjectIdRoute
+  '/integrations/mcp': typeof IntegrationsMcpRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/admin': typeof AdminIndexRoute
@@ -163,7 +184,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/ai-config': typeof AdminAiConfigRoute
+  '/admin/ai-hub': typeof AdminAiHubRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -171,6 +194,7 @@ export interface FileRoutesByTo {
   '/agents/new': typeof AgentsNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof EditorProjectIdRoute
+  '/integrations/mcp': typeof IntegrationsMcpRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/admin': typeof AdminIndexRoute
@@ -186,7 +210,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/ai-config': typeof AdminAiConfigRoute
+  '/admin/ai-hub': typeof AdminAiHubRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/plans': typeof AdminPlansRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -194,6 +220,7 @@ export interface FileRoutesById {
   '/agents/new': typeof AgentsNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/editor/$projectId': typeof EditorProjectIdRoute
+  '/integrations/mcp': typeof IntegrationsMcpRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/admin/': typeof AdminIndexRoute
@@ -210,7 +237,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-config'
+    | '/admin/ai-hub'
     | '/admin/dashboard'
+    | '/admin/payments'
     | '/admin/plans'
     | '/admin/settings'
     | '/admin/users'
@@ -218,6 +247,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/auth/callback'
     | '/editor/$projectId'
+    | '/integrations/mcp'
     | '/projects/$projectId'
     | '/projects/new'
     | '/admin'
@@ -232,7 +262,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-config'
+    | '/admin/ai-hub'
     | '/admin/dashboard'
+    | '/admin/payments'
     | '/admin/plans'
     | '/admin/settings'
     | '/admin/users'
@@ -240,6 +272,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/auth/callback'
     | '/editor/$projectId'
+    | '/integrations/mcp'
     | '/projects/$projectId'
     | '/projects/new'
     | '/admin'
@@ -254,7 +287,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-config'
+    | '/admin/ai-hub'
     | '/admin/dashboard'
+    | '/admin/payments'
     | '/admin/plans'
     | '/admin/settings'
     | '/admin/users'
@@ -262,6 +297,7 @@ export interface FileRouteTypes {
     | '/agents/new'
     | '/auth/callback'
     | '/editor/$projectId'
+    | '/integrations/mcp'
     | '/projects/$projectId'
     | '/projects/new'
     | '/admin/'
@@ -277,7 +313,9 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   AdminAgentsRoute: typeof AdminAgentsRoute
   AdminAiConfigRoute: typeof AdminAiConfigRoute
+  AdminAiHubRoute: typeof AdminAiHubRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminPlansRoute: typeof AdminPlansRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -285,6 +323,7 @@ export interface RootRouteChildren {
   AgentsNewRoute: typeof AgentsNewRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   EditorProjectIdRoute: typeof EditorProjectIdRoute
+  IntegrationsMcpRoute: typeof IntegrationsMcpRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -364,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations/mcp': {
+      id: '/integrations/mcp'
+      path: '/integrations/mcp'
+      fullPath: '/integrations/mcp'
+      preLoaderRoute: typeof IntegrationsMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/editor/$projectId': {
       id: '/editor/$projectId'
       path: '/editor/$projectId'
@@ -413,11 +459,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPlansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/admin/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/ai-hub': {
+      id: '/admin/ai-hub'
+      path: '/admin/ai-hub'
+      fullPath: '/admin/ai-hub'
+      preLoaderRoute: typeof AdminAiHubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/ai-config': {
@@ -445,7 +505,9 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   AdminAgentsRoute: AdminAgentsRoute,
   AdminAiConfigRoute: AdminAiConfigRoute,
+  AdminAiHubRoute: AdminAiHubRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminPlansRoute: AdminPlansRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRoute,
@@ -453,6 +515,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsNewRoute: AgentsNewRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   EditorProjectIdRoute: EditorProjectIdRoute,
+  IntegrationsMcpRoute: IntegrationsMcpRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
   AdminIndexRoute: AdminIndexRoute,
