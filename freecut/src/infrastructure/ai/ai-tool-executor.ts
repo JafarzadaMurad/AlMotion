@@ -1,4 +1,22 @@
 import { useTimelineStore } from '@/features/editor/deps/timeline-store';
+import {
+    EffectsPipeline,
+    getGpuCategoriesWithEffects,
+    getGpuEffect,
+    getGpuEffectDefaultParams,
+    hasCssEquivalent,
+} from '@/infrastructure/gpu/effects';
+import {
+    MOTION_PRESETS,
+    buildMotionPresetKeyframes,
+    getMotionPresetProperties,
+    DEFAULT_MOTION_INTENSITY,
+    DEFAULT_MOTION_EASING,
+    type MotionPresetId,
+} from '@/shared/utils/motion-presets';
+import type { GpuEffect } from '@/types/effects';
+import type { EasingType } from '@/types/keyframe';
+import type { TimelineItem } from '@/types/timeline';
 import { useAiChatStore } from '@/features/editor/stores/ai-chat-store';
 import { usePlaybackStore } from '@/shared/state/playback';
 import { useSelectionStore } from '@/shared/state/selection';
@@ -87,9 +105,184 @@ export class AiToolExecutor {
                 return this.askUser(args.question, args.options);
             case 'send_chat_message':
                 return this.sendChatMessage(args.message);
+            case 'list_visual_capabilities':
+                return this.listVisualCapabilities();
+            case 'apply_effect':
+                return this.applyEffect(args.itemIds, args.effectId, args.params);
+            case 'remove_effects':
+                return this.removeEffects(args.itemIds);
+            case 'apply_animation':
+                return this.applyAnimation(args.itemIds, args.preset, args.intensity, args.easing);
+            case 'remove_animation':
+                return this.removeAnimation(args.itemIds);
             default:
                 return `Unknown tool: ${name}`;
         }
+    }
+
+    /**
+     * Tell the model what it can actually apply here, GPU caveat included.
+     * Without that caveat it reaches for a shader that is silently skipped on
+     * a machine with no WebGPU device and then reports success to the user.
+     */
+    private async listVisualCapabilities(): Promise<string> {
+        const gpuDevice = await EffectsPipeline.requestCachedDevice();
+
+        const effects = getGpuCategoriesWithEffects().flatMap(({ category, effects: catEffects }) =>
+            catEffects.map((def) => ({
+                id: def.id,
+                name: def.name,
+                category,
+                params: Object.keys(def.params ?? {}),
+                worksWithoutGpu: hasCssEquivalent(def.id),
+            }))
+        );
+
+        return JSON.stringify({
+            gpuAvailable: !!gpuDevice,
+            note: gpuDevice
+                ? 'All effects render.'
+                : 'No WebGPU device here: only the effects listed render. Do not offer the others.',
+            effects: gpuDevice ? effects : effects.filter((e) => e.worksWithoutGpu),
+            animations: MOTION_PRESETS.map((p) => ({ id: p.id, name: p.label, description: p.description })),
+            animationsNote: 'Animations are keyframes and work with or without a GPU.',
+        });
+    }
+
+    private resolveItems(itemIds: string[]): TimelineItem[] {
+        const wanted = new Set(itemIds ?? []);
+        return useTimelineStore.getState().items.filter((item) => wanted.has(item.id));
+    }
+
+    private async applyEffect(itemIds: string[], effectId: string, params?: Record<string, unknown>): Promise<string> {
+        const definition = getGpuEffect(effectId);
+        if (!definition) {
+            return `Unknown effect "${effectId}". Call list_visual_capabilities for valid IDs.`;
+        }
+
+        const targets = this.resolveItems(itemIds).filter((item) => item.type !== 'audio');
+        if (targets.length === 0) {
+            return 'No matching visual clips. Audio clips cannot take visual effects.';
+        }
+
+        const { addEffect } = useTimelineStore.getState();
+        const merged = { ...getGpuEffectDefaultParams(effectId), ...(params ?? {}) };
+
+        targets.forEach((item) => {
+            addEffect(item.id, {
+                type: 'gpu-effect',
+                gpuEffectType: effectId,
+                params: merged,
+            } as GpuEffect);
+        });
+
+        const device = await EffectsPipeline.requestCachedDevice();
+        const inert = !device && !hasCssEquivalent(effectId);
+
+        return JSON.stringify({
+            applied: definition.name,
+            clips: targets.length,
+            params: merged,
+            ...(inert && {
+                warning: 'No WebGPU device, so this effect will not be visible. Say so rather than reporting success.',
+            }),
+        });
+    }
+
+    private removeEffects(itemIds: string[]): string {
+        const targets = this.resolveItems(itemIds);
+        if (targets.length === 0) return 'No matching clips.';
+
+        const { removeEffect } = useTimelineStore.getState();
+        let removed = 0;
+        targets.forEach((item) => {
+            // Snapshot first — removing mutates the list being walked.
+            for (const effect of [...(item.effects ?? [])]) {
+                removeEffect(item.id, effect.id);
+                removed++;
+            }
+        });
+
+        return `Removed ${removed} effect(s) from ${targets.length} clip(s).`;
+    }
+
+    private applyAnimation(
+        itemIds: string[],
+        preset: MotionPresetId,
+        intensity?: number,
+        easing?: EasingType,
+    ): string {
+        const targets = this.resolveItems(itemIds).filter((item) => item.type !== 'audio');
+        if (targets.length === 0) {
+            return 'No matching visual clips. Audio clips cannot be animated.';
+        }
+
+        const resolvedIntensity = typeof intensity === 'number' ? intensity : DEFAULT_MOTION_INTENSITY;
+        const resolvedEasing = easing ?? DEFAULT_MOTION_EASING;
+        const { addKeyframes, removeKeyframesForProperty, updateItem } = useTimelineStore.getState();
+
+        const skipped: string[] = [];
+        const payloads = targets.flatMap((item) => {
+            if (item.durationInFrames < 2) {
+                skipped.push(item.id);
+                return [];
+            }
+            // Replace rather than stack, matching what the panel does.
+            for (const property of getMotionPresetProperties(preset)) {
+                removeKeyframesForProperty(item.id, property);
+            }
+            const transform = item.transform ?? {};
+            return buildMotionPresetKeyframes({
+                preset,
+                itemId: item.id,
+                durationInFrames: item.durationInFrames,
+                base: {
+                    x: transform.x ?? 0,
+                    y: transform.y ?? 0,
+                    width: transform.width ?? 1920,
+                    height: transform.height ?? 1080,
+                    rotation: transform.rotation ?? 0,
+                    opacity: transform.opacity ?? 1,
+                    cornerRadius: transform.cornerRadius ?? 0,
+                },
+                intensity: resolvedIntensity,
+                easing: resolvedEasing,
+            });
+        });
+
+        if (payloads.length === 0) {
+            return 'Nothing animated — every target clip is shorter than two frames.';
+        }
+
+        addKeyframes(payloads);
+        targets
+            .filter((item) => !skipped.includes(item.id))
+            .forEach((item) => {
+                updateItem(item.id, {
+                    motion: { preset, intensity: resolvedIntensity, easing: resolvedEasing },
+                });
+            });
+
+        return JSON.stringify({
+            applied: preset,
+            clips: targets.length - skipped.length,
+            intensity: resolvedIntensity,
+            easing: resolvedEasing,
+            ...(skipped.length > 0 && { skippedTooShort: skipped }),
+        });
+    }
+
+    private removeAnimation(itemIds: string[]): string {
+        const targets = this.resolveItems(itemIds);
+        if (targets.length === 0) return 'No matching clips.';
+
+        const { removeKeyframesForItem, updateItem } = useTimelineStore.getState();
+        targets.forEach((item) => {
+            removeKeyframesForItem(item.id);
+            updateItem(item.id, { motion: undefined });
+        });
+
+        return `Removed animation from ${targets.length} clip(s).`;
     }
 
     private getTimelineInfo(): string {

@@ -14,7 +14,7 @@ import {
   DEFAULT_MOTION_INTENSITY,
   DEFAULT_MOTION_EASING,
   type MotionPresetId,
-} from '../utils/motion-presets';
+} from '@/shared/utils/motion-presets';
 
 const EASING_CHOICES: Array<{ value: EasingType; label: string }> = [
   { value: 'ease-in-out', label: 'Smooth' },

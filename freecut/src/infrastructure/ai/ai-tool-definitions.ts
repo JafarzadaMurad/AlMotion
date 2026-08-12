@@ -537,4 +537,94 @@ export const AI_TOOLS = [
             },
         },
     },
+    {
+        type: 'function',
+        function: {
+            name: 'list_visual_capabilities',
+            description: 'List the GPU effects and animation presets that can be applied to clips, including which effects work in this browser. Call this before apply_effect or apply_animation when unsure what is available.',
+            parameters: { type: 'object', properties: {} },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'apply_effect',
+            description: 'Apply a GPU visual effect (colour grade, blur, stylize) to one or more clips. Use list_visual_capabilities to see valid effect IDs. Effects stack, so applying two adds both.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    itemIds: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Clip IDs to affect. Use get_timeline_info to find IDs.',
+                    },
+                    effectId: {
+                        type: 'string',
+                        description: 'Effect ID, e.g. "gpu-brightness", "gpu-saturation", "gpu-gaussian-blur", "gpu-sepia".',
+                    },
+                    params: {
+                        type: 'object',
+                        description: 'Optional parameter overrides, e.g. {"amount": 1.4} or {"radius": 8}. Defaults are used for anything omitted.',
+                    },
+                },
+                required: ['itemIds', 'effectId'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'remove_effects',
+            description: 'Remove all visual effects from the given clips.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    itemIds: { type: 'array', items: { type: 'string' }, description: 'Clip IDs to clear.' },
+                },
+                required: ['itemIds'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'apply_animation',
+            description: 'Apply a camera move (pan, zoom, Ken Burns, fade) to clips as keyframes spanning the whole clip. Works without a GPU. Applying a second move replaces the first.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    itemIds: { type: 'array', items: { type: 'string' }, description: 'Clip IDs to animate.' },
+                    preset: {
+                        type: 'string',
+                        enum: ['zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'pan-up', 'pan-down', 'ken-burns', 'fade-in', 'fade-out'],
+                        description: 'Which move to apply.',
+                    },
+                    intensity: {
+                        type: 'number',
+                        description: 'How far the move travels, 0.02-0.6 as a fraction of clip size. 0.15 is the documentary-style default. Ignored by fades.',
+                    },
+                    easing: {
+                        type: 'string',
+                        enum: ['ease-in-out', 'linear', 'ease-in', 'ease-out'],
+                        description: 'Pacing of the move. Defaults to ease-in-out.',
+                    },
+                },
+                required: ['itemIds', 'preset'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'remove_animation',
+            description: 'Remove all keyframe animation from the given clips.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    itemIds: { type: 'array', items: { type: 'string' }, description: 'Clip IDs to clear.' },
+                },
+                required: ['itemIds'],
+            },
+        },
+    },
 ];
