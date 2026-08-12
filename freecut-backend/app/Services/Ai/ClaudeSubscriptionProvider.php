@@ -34,10 +34,14 @@ class ClaudeSubscriptionProvider implements AiProvider
      * users who have no basis to make it.
      */
     private const MODEL_MAP = [
+        'claude-opus-5' => 'opus',
+        'claude-sonnet-5' => 'sonnet',
+        'claude-fable-5' => 'fable',
+        'claude-haiku-4-5-20251001' => 'haiku',
+        // Older ids still reachable, mapped onto the same harness tiers.
         'claude-opus-4-7' => 'opus',
         'claude-sonnet-4-6' => 'sonnet',
         'claude-haiku-4-5' => 'haiku',
-        'claude-haiku-4-5-20251001' => 'haiku',
     ];
 
     public const MODE_SETTING = 'anthropic_mode';

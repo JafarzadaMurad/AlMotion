@@ -37,7 +37,12 @@ class AiPricingSeeder extends Seeder
         ['openai', 'gpt-5.4-mini', 0.25, 2.00, 0.025],
         ['openai', 'gpt-5.4-nano', 0.05, 0.40, 0.005],
 
-        // Anthropic
+        // Anthropic — the 5 family
+        ['anthropic', 'claude-opus-5', 15.00, 75.00, 1.50],
+        ['anthropic', 'claude-sonnet-5', 3.00, 15.00, 0.30],
+        ['anthropic', 'claude-fable-5', 1.00, 5.00, 0.10],
+
+        // Anthropic — earlier ids, still selectable
         ['anthropic', 'claude-opus-4-7', 15.00, 75.00, 1.50],
         ['anthropic', 'claude-sonnet-4-6', 3.00, 15.00, 0.30],
         ['anthropic', 'claude-haiku-4-5', 1.00, 5.00, 0.10],

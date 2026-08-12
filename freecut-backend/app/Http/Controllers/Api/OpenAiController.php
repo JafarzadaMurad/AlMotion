@@ -29,7 +29,7 @@ class OpenAiController extends Controller
      * silently upgrading a user to the most expensive model on a bad day is
      * not a bill anyone agreed to.
      */
-    private const SUBSCRIPTION_FALLBACK_MODEL = 'claude-sonnet-4-6';
+    private const SUBSCRIPTION_FALLBACK_MODEL = 'claude-sonnet-5';
 
     public function proxy(Request $request)
     {

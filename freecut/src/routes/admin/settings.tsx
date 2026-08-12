@@ -20,8 +20,11 @@ const ALL_MODELS = [
   { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', desc: 'Our strongest mini model yet' },
   { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', desc: 'Cheapest GPT-5.4-class model' },
   // Anthropic
-  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Anthropic top-tier reasoning' },
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Anthropic balanced default' },
+  { id: 'claude-opus-5', label: 'Claude Opus 5', desc: 'Anthropic top-tier reasoning' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', desc: 'Anthropic balanced default' },
+  { id: 'claude-fable-5', label: 'Claude Fable 5', desc: 'Anthropic fast tier' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Previous generation' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Previous generation' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Anthropic fast & cheap' },
   // Google Gemini
   { id: 'gemini-3.1-pro-high', label: 'Gemini 3.1 Pro (High)', desc: 'Pro with dynamic thinking budget' },

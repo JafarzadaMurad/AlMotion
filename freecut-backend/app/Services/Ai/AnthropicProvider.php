@@ -26,11 +26,18 @@ use Illuminate\Support\Str;
  */
 class AnthropicProvider implements AiProvider
 {
+    /**
+     * The 5 family plus the 4.x ids kept for projects that already reference
+     * them — removing an id a saved chat session points at would break it.
+     */
     private const MODELS = [
+        'claude-opus-5',
+        'claude-sonnet-5',
+        'claude-fable-5',
+        'claude-haiku-4-5-20251001',
         'claude-opus-4-7',
         'claude-sonnet-4-6',
         'claude-haiku-4-5',
-        'claude-haiku-4-5-20251001',
     ];
 
     private const DEFAULT_MAX_TOKENS = 4096;
