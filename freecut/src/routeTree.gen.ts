@@ -32,6 +32,7 @@ import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminAiHubRouteImport } from './routes/admin/ai-hub'
 import { Route as AdminAiConfigRouteImport } from './routes/admin/ai-config'
 import { Route as AdminAgentsRouteImport } from './routes/admin/agents'
+import { Route as AdminPlansPlanIdRouteImport } from './routes/admin/plans_.$planId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -150,6 +151,11 @@ const AdminAgentsRoute = AdminAgentsRouteImport.update({
   path: '/admin/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPlansPlanIdRoute = AdminPlansPlanIdRouteImport.update({
+  id: '/admin/plans_/$planId',
+  path: '/admin/plans/$planId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminIndexRoute
   '/agents': typeof AgentsIndexRoute
   '/projects': typeof ProjectsIndexRoute
+  '/admin/plans/$planId': typeof AdminPlansPlanIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/agents': typeof AgentsIndexRoute
   '/projects': typeof ProjectsIndexRoute
+  '/admin/plans/$planId': typeof AdminPlansPlanIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/agents/': typeof AgentsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/admin/plans_/$planId': typeof AdminPlansPlanIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/projects'
+    | '/admin/plans/$planId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/projects'
+    | '/admin/plans/$planId'
   id:
     | '__root__'
     | '/'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/agents/'
     | '/projects/'
+    | '/admin/plans_/$planId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -329,6 +341,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AgentsIndexRoute: typeof AgentsIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
+  AdminPlansPlanIdRoute: typeof AdminPlansPlanIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/plans_/$planId': {
+      id: '/admin/plans_/$planId'
+      path: '/admin/plans/$planId'
+      fullPath: '/admin/plans/$planId'
+      preLoaderRoute: typeof AdminPlansPlanIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AgentsIndexRoute: AgentsIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  AdminPlansPlanIdRoute: AdminPlansPlanIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
